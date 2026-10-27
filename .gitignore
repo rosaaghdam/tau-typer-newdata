@@ -1,0 +1,27 @@
+# The conda environment lives in ./env – rebuild it from environment.yml, never commit it
+env/
+
+# Real data must never go into git (toy data in data/toy/ is allowed)
+data/*
+!data/toy/
+
+# Results, caches, OS files
+results/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+
+# Papers are copyrighted PDFs (and their extracted text) - keep them local only
+papers/
+
+# Reference copies of other people's repositories - not ours to publish
+Github/
+
+# SuStaIn result files (can be large; recreate by running the steps)
+*.pickle
+
+# Claude Code browser-pane settings (machine-specific)
+.claude/
+
+# Jake's notebooks, trained model files and data - local only until the lab decides what can be shared
+reference/

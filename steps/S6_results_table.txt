@@ -1,0 +1,40 @@
+# S6 (part 1) - one results row per person + the average pattern of each subtype
+# First do S0 (start a FRESH Python - src/ files changed). Needs S3 and S5 to have been run.
+
+import yaml, pandas as pd
+from src.results import load_sustain_result, subject_table
+
+# 1. settings; show all columns when printing
+cfg = yaml.safe_load(open("config.yaml"))
+p, s, r = cfg["pipeline"], cfg["sustain"], cfg["results"]
+pd.set_option("display.width", 200); pd.set_option("display.max_columns", 20)
+
+# 2. read the z-scores (S3) and SuStaIn's saved result for the 4-subtype model (S5)
+z = pd.read_csv(p["output_folder"] + "/zscores.csv", index_col=p["id_column"])
+result = load_sustain_result(r["sustain_folder"], s["dataset_name"], r["n_subtypes"])
+
+# 3. build the results table: one row per person
+table = subject_table(result, z.index, r["poor_fit_threshold"])
+table.head()
+
+# 4. how many people per subtype, and how many fit poorly
+table["subtype"].value_counts()
+table["poor_fit"].sum()
+
+# 5. the average z-score of each region in each subtype (tau+ people only) -> name the subtypes
+z[table["subtype"] != "S0"].groupby(table["subtype"]).mean().round(1)
+
+# 6. save the table
+table.to_csv(r["sustain_folder"] + "/subject_results.csv")
+
+# Expected (from your S5 fast-test run):
+#   step 3:  TOY_0001  ml_subtype 3, prob_subtype 1.00, ml_stage 8,  subtype "Subtype 3"
+#            TOY_0002  ml_subtype 1, prob_subtype 0.55, ml_stage 0,  subtype "S0"
+#   step 4:  S0 304, Subtype 1 66, Subtype 2 58, Subtype 3 39, Subtype 4 33;  poor_fit 0
+#   step 5 (average z, tau+ only):
+#            L_MTL R_MTL L_temp R_temp L_par R_par L_occ R_occ L_fro R_fro
+#   Subt. 1   9.9   8.6   7.9    7.3   7.0   6.0   2.4   0.9   4.9   3.6   <- MTL highest: limbic
+#   Subt. 2   3.3   2.3   5.9    4.6   8.4   7.0   9.0   8.7   1.8   0.7   <- occipital highest: posterior
+#   Subt. 3   7.4   3.3   9.6    5.8   9.1   4.1   4.6   2.1   6.8   2.2   <- left >> right: lateral temporal
+#   Subt. 4   1.9   1.2   6.7    5.9  10.8   9.2   4.0   3.5   8.9   7.2   <- MTL lowest: MTL-sparing
+#   step 6: creates results/toy/sustain_fast_test/subject_results.csv

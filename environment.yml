@@ -1,0 +1,28 @@
+# Tau-typer project environment.
+# Created INSIDE the project folder (in ./env) with:
+#     conda env create -f environment.yml -p ./env
+# Activate with:
+#     conda activate ./env
+# If the project folder is moved, delete ./env and create it again from this file.
+name: tautyper   # ignored when using -p ./env, kept for readability
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy>=1.18,<2.4   # pySuStaIn's limit
+  - pandas
+  - scipy
+  - scikit-learn       # GMMs, cross-validation
+  - statsmodels        # OLS models, FDR correction (paper's statistics)
+  - matplotlib
+  - seaborn
+  - pyyaml             # reads config.yaml
+  - jupyterlab
+  - ipykernel
+  - pytest
+  - shiny              # Shiny for Python: the Tau-typer app (app/app.py)
+  - pip
+  - pip:
+      # original pySuStaIn, pinned to one commit; brings pathos, kde_ebm, awkde, tqdm
+      - git+https://github.com/ucl-pond/pySuStaIn@708fa22d89c9692dbeafcc2c31a1c8460ced5640
+      - ggseg==0.1           # brain outlines (Desikan-Killiany atlas) for the brain figures of tab 4

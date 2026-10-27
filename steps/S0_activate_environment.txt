@@ -1,0 +1,10 @@
+# S0 – activate the environment (do this first, once per terminal window)
+# Copy these lines into the Terminal:
+
+cd "/Users/rosa/Desktop/ALLWork/Lund/Project/tau-PET_subtyping_algorithm"
+conda activate ./env
+python
+
+# You are now inside Python (the prompt shows >>>).
+# Now open the next step file and copy its lines.
+# To leave Python at the end, type:  exit()

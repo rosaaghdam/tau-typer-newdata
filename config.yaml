@@ -1,0 +1,133 @@
+# Tau-typer settings. Change values HERE, never in the code.
+
+# ---------- Step 1: toy data (simulated, for testing the pipeline) ----------
+toy_data:
+  seed: 42                      # random seed -> identical toy data on every run
+  n_subjects: 500
+  tau_negative_fraction: 0.60   # paper: 61% had no abnormal tau (stage 0)
+  # share of tau+ people per subtype (paper: 32.7 / 17.8 / 30.5 / 19.0 %)
+  subtype_fractions: {S1_limbic: 0.33, S2_MTL_sparing: 0.18, S3_posterior: 0.30, S4_lateral_temporal: 0.19}
+  z_events: [2, 5, 10]          # paper's cut-points, same for every region
+  z_max: 15                     # OUR choice - the paper does not report Z_max
+  # "Normal" (tau-negative) SUVR per lobe, used for both hemispheres.
+  # Invented, roughly flortaucipir-like. SUVR = mean + z * sd
+  normal_suvr:
+    MTL:       {mean: 1.20, sd: 0.10}
+    temporal:  {mean: 1.15, sd: 0.08}
+    parietal:  {mean: 1.10, sd: 0.08}
+    occipital: {mean: 1.12, sd: 0.08}
+    frontal:   {mean: 1.05, sd: 0.07}
+  # The 10 regions (= SuStaIn biomarkers). This is the column order everywhere.
+  regions: [L_MTL, R_MTL, L_temporal, R_temporal, L_parietal, R_parietal,
+            L_occipital, R_occipital, L_frontal, R_frontal]
+  # Order in which regions become abnormal in each subtype (first = earliest).
+  # The toy-data code turns each order into 30 events with the "wave" rule:
+  # each region starts one step after the previous one, earlier regions keep climbing.
+  subtype_region_order:
+    S1_limbic:           [L_MTL, R_MTL, L_temporal, R_temporal, L_parietal, R_parietal, L_frontal, R_frontal, L_occipital, R_occipital]
+    S2_MTL_sparing:      [L_parietal, R_parietal, L_frontal, R_frontal, L_temporal, R_temporal, L_occipital, R_occipital, L_MTL, R_MTL]
+    S3_posterior:        [L_occipital, R_occipital, L_parietal, R_parietal, L_temporal, R_temporal, L_MTL, R_MTL, L_frontal, R_frontal]
+    S4_lateral_temporal: [L_temporal, L_parietal, L_MTL, L_frontal, R_temporal, L_occipital, R_parietal, R_MTL, R_frontal, R_occipital]
+  # Simple covariates. Invented rules, only so the toy file looks like real study data.
+  # SuStaIn does not use them.
+  covariates:
+    age_mean: 75                       # age at stage 0
+    age_drop_per_stage: 0.3            # later stages are younger (paper: r = -0.59)
+    age_sd: 6
+    female_fraction: 0.55
+    diagnosis_stage_cutoffs: {MCI: 8, AD: 19}   # stage >= 19 -> AD, >= 8 -> MCI, else CN
+    amyloid_positive_fraction_tau_negative: 0.25 # tau+ people are always amyloid+
+  # 10 invented clinical variables for testing tab 5 (code/01h_make_toy_clinical.py)
+  clinical_seed: 43
+  clinical_missing_fraction: 0.05   # share of empty cells per clinical column
+  scd_fraction_of_cn: 0.2          # share of CN people labelled SCD in that file
+  n_remove_young_cn: 10                    # CN people made younger than 40 (filtering rule removes them)
+  n_remove_amyloid_negative_impaired: 10   # amyloid-negative people relabelled MCI/AD (removed too)
+
+# ---------- Step 2: pipeline (the paper's method) ----------
+pipeline:
+  input_csv: data/toy/toy_tau.csv
+  id_column: subject_id
+  # the regions SuStaIn uses (same names as the CSV columns)
+  regions: [L_MTL, R_MTL, L_temporal, R_temporal, L_parietal, R_parietal,
+            L_occipital, R_occipital, L_frontal, R_frontal]
+  seed: 42
+  gmm_components: 2        # paper: per region one "normal" + one "abnormal" bell curve
+  output_folder: results/toy
+
+# ---------- SuStaIn settings (paper steps 6-9) ----------
+sustain:
+  z_events: [2, 5, 10]        # paper: same cut-points for every region -> 30 events
+  z_max: 15                   # NOT reported in the paper - our choice (must be above 10)
+  n_subtypes_max: 4           # fit 1, 2, 3 and 4 subtypes (paper chose 4)
+  n_startpoints: 25           # not reported in the paper; pySuStaIn recommends 25
+  n_iterations_mcmc: 10000    # paper: 10,000 (pySuStaIn recommends 1e5 - 1e6)
+  use_parallel_startpoints: false
+  dataset_name: toy           # used in the names of SuStaIn's output files
+  # Quick first try: same model, far fewer start points and MCMC iterations (rough results!)
+  fast_test: {n_startpoints: 5, n_iterations_mcmc: 1000}
+
+# ---------- Results (paper steps 9-11) ----------
+results:
+  sustain_folder: results/toy/sustain_fast_test   # which SuStaIn run to look at
+  n_subtypes: 4                # which model to read (paper: 4, chosen by cross-validation)
+  poor_fit_threshold: 0.5      # paper: subtype probability < 0.5 = does not fit any subtype well
+  stage_sd_limit: 1.0          # tab 4 Stages: stage called uncertain if its SD (in stages) is above this
+  n_samples_staging: 1000      # MCMC samples used to stage follow-up scans (pySuStaIn's own default)
+  # Our names for the subtypes of THIS run, in SuStaIn's order (Subtype 1 = largest group).
+  # Chosen by looking at the average z-score table and the PVD (S6). Re-check after every new run!
+  subtype_names: [limbic, posterior, lateral temporal, MTL-sparing]
+  # Stage groups for the progression figure: [1, 7, 13, ...] -> 1-6, 7-12, 13-18, 19-24, 25-30
+  stage_edges: [1, 7, 13, 19, 25, 31]
+
+# ---------- App tab 1: data checks (QC) ----------
+qc:
+  suvr_min: 0.5     # OUR choice: tau-PET SUVR below this is almost certainly an error
+  suvr_max: 4.0     # OUR choice: SUVR above this is very unusual even in advanced AD
+
+# ---------- App tab 1: the paper's inclusion rule (Vogel 2021, Methods) ----------
+inclusion:
+  min_age_cn: 40                          # paper: cognitively normal people older than 40
+  cn_labels: [CN, CU, HC, control, SCD]   # diagnosis values meaning "cognitively normal" (paper: SCD counts as unimpaired)
+  impaired_labels: [MCI, AD, dementia]    # diagnosis values meaning MCI or AD (must be amyloid+)
+
+# ---------- App tab 2: normalization checks ----------
+normalization:
+  min_people_per_event: 10    # Young et al. 2018 dropped events reached by fewer than 10 people
+  z_max_method: manual        # "manual" (typed values; default sustain.z_max everywhere) or "percentile"
+  z_max_percentile: 95        # used by "percentile": among people with z >= the first cut-point
+  max_z_above_z_max: 10       # a run is blocked if a z-score is more than this above Z_max: pySuStaIn's
+                              # likelihood becomes 0 for such a person and the run fails
+  # Healthy reference group (reference-group normalization + covariate adjustment), always
+  # amyloid-negative: "cn_scd" = CN + SCD (Vogel/BioFINDER count SCD as unimpaired) or
+  # "cn" = CN only (Young 2018). Default cn_scd - to check with Jake.
+  reference_group: cn_scd
+  reference_labels_cn: [CN, CU, HC, control]
+  reference_labels_scd: [SCD]
+  covariate_alpha: 0.05        # a covariate is removed in a region only if p < this (Young 2018)
+  # Several cohorts (tab 1 'Cohort / site'): every cohort gets its own normal, so it needs enough people
+  min_reference_per_cohort: 10     # healthy reference people per cohort (method 'Reference group')
+  min_people_per_cohort_gmm: 50    # people per cohort (method 'GMM on everyone')
+  # Tab 2 warns when a covariate's name contains one of these words (lower case): removing a disease
+  # measure would remove the signal SuStaIn should find. Only the names are checked - add your own
+  # data's names here (e.g. a new test or biomarker).
+  disease_words: [mmse, moca, cdr, adas, cognit, memory, executive, language, visuo,
+                  tau, amyloid, abeta, diagnos, dx]
+
+# ---------- App tab 3: cross-validation ----------
+cross_validation:
+  n_folds: 10                 # paper: 10-fold cross-validation
+  n_subtypes_max: 6           # fit 1..6 so CVIC can show whether more than 4 subtypes helps
+
+# ---------- App tab 3: where runs are saved ----------
+runs:
+  folder: results/app_runs    # one NEW sub-folder per run (pySuStaIn would reuse old files otherwise)
+  dataset_name: tau_typer      # start of the result file names pySuStaIn writes
+  private_per_visit: false     # true on a shared server: each visit has its own runs folder, deleted when the visit ends
+  max_upload_csv_mb: 50        # largest data file (CSV) the app accepts
+  max_upload_run_mb: 1000      # largest run ZIP (unpacked size) the app accepts
+
+# ---------- App tab 4: figures ----------
+figures:
+  heatmap_vmax: 12            # colour scale maximum (z-score) of the tau heatmaps
+  n_stage_groups: 5           # stages are shown in this many groups (30 events -> 1-6, 7-12, ... 25-30)

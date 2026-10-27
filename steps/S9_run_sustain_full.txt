@@ -1,0 +1,16 @@
+# S9 - FULL SuStaIn run (paper settings: 25 start points, 10,000 MCMC iterations)
+# This one runs in the TERMINAL, not inside Python (it takes 30-60 minutes).
+
+# 1. in the Terminal (if you are inside Python, type exit() first):
+cd "/Users/rosa/Desktop/ALLWork/Lund/Project/tau-PET_subtyping_algorithm"
+conda activate ./env
+python code/02_run_sustain_full.py
+
+# 2. wait until you see:  DONE in .. minutes - results in results/toy/sustain_full
+#    (progress bars and "UserWarning" lines while it works are normal)
+
+# 3. to look at the full results with S6, S7 and S8: open config.yaml and change
+#        sustain_folder: results/toy/sustain_fast_test
+#    to
+#        sustain_folder: results/toy/sustain_full
+#    then run S6, S7, S8 again (fresh Python). Check the subtype names: the numbering may change!

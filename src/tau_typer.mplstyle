@@ -1,0 +1,21 @@
+# One look for every figure of the app and the report (used by src/figures.py)
+font.family: sans-serif
+font.sans-serif: Arial, Helvetica, DejaVu Sans   # the same font as the app (tau_typer.css)
+pdf.fonttype: 42             # the font is embedded as TrueType in PDFs (editable text)
+font.size: 9                 # one set of sizes for every figure (as in Demographics)
+axes.titlesize: 10
+axes.titleweight: bold
+axes.labelsize: 9
+axes.labelcolor: 1F2933
+axes.edgecolor: 9AA5B1
+axes.spines.top: False
+axes.spines.right: False
+xtick.color: 52606D
+ytick.color: 52606D
+xtick.labelsize: 8
+ytick.labelsize: 8
+text.color: 1F2933
+legend.frameon: False
+legend.fontsize: 8
+figure.facecolor: white
+savefig.facecolor: white

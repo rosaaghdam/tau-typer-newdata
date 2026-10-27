@@ -1,0 +1,86 @@
+/* Tau-typer look. Quiet colours for the app itself, so the diagnosis and subtype colours in the
+   figures are the only strong colours on the page. One accent (deep teal) for "this is where you are". */
+:root {
+  --tt-ink: #1F2933;          /* text */
+  --tt-slate: #52606D;        /* secondary text */
+  --tt-line: #D9E2EC;         /* borders */
+  --tt-bg: #F5F7FA;           /* page */
+  --tt-surface: #FFFFFF;      /* cards, sidebars */
+  --tt-accent: #0F5C6E;       /* current step, buttons */
+  --tt-accent-dark: #0A4654;
+  --tt-attention: #9A5B00;    /* "needs your action" */
+}
+
+/* one font for the whole app, its tables and its figures (src/tau_typer.mplstyle uses the same) */
+body, table, .shiny-data-grid, .popover, .form-control, .form-select, .btn {
+  font-family: Arial, Helvetica, "Helvetica Neue", sans-serif;
+}
+body { color: var(--tt-ink); background: var(--tt-bg); }
+table, .shiny-data-grid { font-variant-numeric: tabular-nums; }   /* digits line up in columns */
+.text-muted { color: var(--tt-slate) !important; }
+
+/* ---- the step rail: the main navigation, one step per tab, each with its status ---- */
+.navbar { background: var(--tt-surface) !important; border-bottom: 1px solid var(--tt-line); }
+.navbar-brand { font-weight: 700; color: var(--tt-ink) !important; margin-right: 1.5rem; }
+.navbar .nav-link { display: flex; align-items: center; gap: .5rem; padding: .5rem .6rem !important;
+                    position: relative; }
+.navbar .navbar-nav .nav-item:last-child { margin-left: auto; }          /* About on the right */
+.tt-step-num { flex: none; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: inline-grid;
+               place-items: center; font-weight: 700; font-size: .85rem; color: var(--tt-slate);
+               border: 2px solid var(--tt-line); background: var(--tt-surface); }
+.tt-step-text { display: flex; flex-direction: column; line-height: 1.2; text-align: left; }
+.tt-step-label { font-weight: 700; color: var(--tt-ink); font-size: .95rem; }
+.tt-step-text { min-width: 0; }
+.tt-step-status { display: block; max-width: 9.5rem; font-size: .78rem; color: var(--tt-slate); white-space: nowrap;
+                  overflow: hidden; text-overflow: ellipsis; }
+.nav-link:has(.tt-done) .tt-step-num { background: var(--tt-accent); border-color: var(--tt-accent); color: #fff; }
+.nav-link:has(.tt-attention) .tt-step-num { border-color: var(--tt-attention); color: var(--tt-attention); }
+.tt-step-status.tt-attention { color: var(--tt-attention); }
+.navbar .nav-link.active .tt-step-label { color: var(--tt-accent); }
+.navbar .nav-link.active::after { content: ""; position: absolute; left: .85rem; right: .85rem; bottom: -.45rem;
+                                   height: 3px; border-radius: 2px; background: var(--tt-accent); }
+
+/* ---- cards, sidebars, tabs inside a page ---- */
+.card { border: 1px solid var(--tt-line); border-radius: 10px; box-shadow: none; }
+.card-header { background: var(--tt-surface); font-weight: 700; border-bottom: 1px solid var(--tt-line); }
+.bslib-sidebar-layout > .sidebar { background: var(--tt-surface); }
+.nav-tabs .nav-link { color: var(--tt-slate); }
+.nav-tabs .nav-link.active { color: var(--tt-accent); font-weight: 700; }
+.accordion-button { font-weight: 700; color: var(--tt-ink); }
+.accordion-button:not(.collapsed) { background: #EEF5F7; color: var(--tt-accent); box-shadow: none; }
+
+/* ---- buttons: one accent ---- */
+.btn-primary { --bs-btn-bg: var(--tt-accent); --bs-btn-border-color: var(--tt-accent);
+               --bs-btn-hover-bg: var(--tt-accent-dark); --bs-btn-hover-border-color: var(--tt-accent-dark);
+               --bs-btn-active-bg: var(--tt-accent-dark); --bs-btn-active-border-color: var(--tt-accent-dark);
+               --bs-btn-disabled-bg: var(--tt-accent); --bs-btn-disabled-border-color: var(--tt-accent); }
+
+/* ---- summary numbers (Quick result) ---- */
+.tt-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem;
+              margin-bottom: 1rem; }
+.tt-number { background: var(--tt-surface); border: 1px solid var(--tt-line); border-radius: 10px;
+             padding: .7rem .9rem; }
+.tt-number-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.tt-number-label { font-size: .85rem; color: var(--tt-slate); }
+
+/* ---- under each figure: colours, save as PNG / PDF, include in report ---- */
+.tt-tools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem 1rem; margin: .5rem 0 1rem;
+            padding-top: .5rem; border-top: 1px solid var(--tt-line); }
+.tt-tools .form-group, .tt-tools .shiny-input-container { margin-bottom: 0; }
+.tt-tools .form-label { font-size: .8rem; color: var(--tt-slate); margin-bottom: .15rem; }
+.tt-tools .form-check { margin-bottom: .3rem; }
+
+/* ---- EDA report: one readable column, each part a block with its conclusions first ---- */
+.tt-eda { max-width: 1150px; margin: 1rem auto; }
+.tt-eda-part { background: #fff; border: 1px solid var(--tt-line); border-radius: 10px; padding: 1rem 1.25rem;
+               margin-top: 1rem; }
+.tt-eda-findings { border-left: 3px solid var(--tt-accent); background: #EEF5F7; padding: .5rem .75rem .1rem;
+                   border-radius: 4px; font-size: .92rem; }
+.tt-eda-scroll { overflow-x: auto; }
+.tt-eda-table { font-size: .82rem; margin-bottom: .25rem; }
+.tt-eda-table th { color: var(--tt-slate); font-weight: 700; white-space: nowrap; }
+/* figures are pictures at their real size (sharp, the same text size everywhere); a wide one shrinks to fit */
+.shiny-image-output img, img.tt-figure { max-width: 100%; height: auto; display: block; margin-top: .25rem; }
+
+/* ---- keyboard focus always visible ---- */
+:focus-visible { outline: 3px solid #2D7FF9; outline-offset: 2px; }

@@ -1,0 +1,33 @@
+# S4 - prepare SuStaIn's inputs (paper step 6)
+# First do S0 and S3 (S3 creates results/toy/zscores.csv). Then copy these lines into Python.
+
+import yaml, pandas as pd
+from src.sustain_model import sustain_inputs, count_people_above
+
+# 1. read the settings: pipeline section (files, regions) and sustain section (cut-points etc.)
+cfg = yaml.safe_load(open("config.yaml"))
+p, s = cfg["pipeline"], cfg["sustain"]
+
+# 2. read the z-scores made in S3
+z = pd.read_csv(p["output_folder"] + "/zscores.csv", index_col=p["id_column"])
+
+# 3. build the 3 inputs for ZscoreSustain
+data, Z_vals, Z_max = sustain_inputs(z, p["regions"], s["z_events"], s["z_max"])
+
+# 4. check their shapes: 500 people x 10 regions, 10 regions x 3 cut-points, 10 values
+data.shape, Z_vals.shape, Z_max.shape
+Z_vals[0], Z_max[0]
+
+# 5. how many people reach each cut-point in each region
+count_people_above(z, p["regions"], s["z_events"])
+
+# Expected:
+#   step 4: ((500, 10), (10, 3), (10,))   and   (array([ 2.,  5., 10.]), 15.0)
+#   step 5:             z>=2  z>=5  z>=10
+#           L_MTL        130   109     54
+#           R_MTL        101    81     32
+#           L_temporal   155   135     75
+#           ...
+#           R_frontal     68    52     23
+#   Every event is reached by at least 23 people -> none is too rare
+#   (the original SuStaIn paper dropped events reached by fewer than 10 people).

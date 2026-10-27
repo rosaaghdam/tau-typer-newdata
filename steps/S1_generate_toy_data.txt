@@ -1,0 +1,19 @@
+# S1 – generate the toy data (in memory)
+# First do S0. Then copy these lines into Python:
+
+import yaml, numpy as np
+from src.toy_data import assign_true_subtypes_and_stages, simulate_regional_suvr
+cfg = yaml.safe_load(open("config.yaml"))["toy_data"]
+subtypes, stages = assign_true_subtypes_and_stages(cfg, np.random.default_rng(cfg["seed"]))
+z, suvr = simulate_regional_suvr(cfg, subtypes, stages)
+suvr.shape
+suvr[:3].round(2)
+
+# Expected:
+#   (500, 10)                  -> 500 people, 10 regions
+#   then 3 rows of 10 SUVR values (the first 3 people):
+#   [[2.17, 1.35, 1.97, 1.29, 1.9 , 1.26, 1.26, 1.13, 1.31, 1.13],   <- S4 lateral temporal, stage 10: left side high
+#    [1.37, 1.21, 1.16, 1.15, 1.05, 1.16, 1.19, 1.19, 1.11, 1.05],   <- tau-negative: all near normal
+#    [1.26, 1.15, 1.24, 0.99, 1.21, 1.11, 1.07, 1.34, 1.1 , 1.01]]   <- tau-negative
+#   Column order: L_MTL, R_MTL, L_temporal, R_temporal, L_parietal, R_parietal,
+#                 L_occipital, R_occipital, L_frontal, R_frontal

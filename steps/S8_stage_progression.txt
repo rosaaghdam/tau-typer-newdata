@@ -1,0 +1,21 @@
+# S8 - figure: how tau spreads with SuStaIn stage, using the real people (paper Fig. 1e idea)
+# First do S0 (start a FRESH Python - src/ files changed). Needs S3, S5 and S6 to have been run.
+
+import yaml, pandas as pd
+from src.figures import plot_stage_progression
+
+# 1. settings
+cfg = yaml.safe_load(open("config.yaml"))
+p, r = cfg["pipeline"], cfg["results"]
+
+# 2. the z-scores (S3) and the per-person results table (S6)
+z = pd.read_csv(p["output_folder"] + "/zscores.csv", index_col=p["id_column"])
+table = pd.read_csv(r["sustain_folder"] + "/subject_results.csv", index_col=p["id_column"])
+
+# 3. titles: "Subtype 1: limbic", ...
+titles = [f"Subtype {i + 1}: {name}" for i, name in enumerate(r["subtype_names"])]
+
+# 4. draw and save (a window opens; close it when you are done looking)
+fig = plot_stage_progression(z, table, p["regions"], titles, r["stage_edges"],
+                             r["sustain_folder"] + "/stage_progression.png")
+fig.show()

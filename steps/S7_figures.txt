@@ -1,0 +1,26 @@
+# S7 - clearer figure of the SuStaIn result: the positional variance diagram (PVD)
+# First do S0 (start a FRESH Python - src/ files changed). Needs S5 to have been run.
+
+import yaml, numpy as np
+from src.results import load_sustain_result
+from src.figures import plot_pvd
+
+# 1. settings
+cfg = yaml.safe_load(open("config.yaml"))
+p, s, r = cfg["pipeline"], cfg["sustain"], cfg["results"]
+
+# 2. SuStaIn's saved result (4-subtype model) and the cut-points table (10 regions x [2, 5, 10])
+result = load_sustain_result(r["sustain_folder"], s["dataset_name"], r["n_subtypes"])
+Z_vals = np.array([s["z_events"]] * len(p["regions"]), dtype=float)
+
+# 3. titles: "Subtype 1: limbic", "Subtype 2: posterior", ...
+titles = [f"Subtype {i + 1}: {name}" for i, name in enumerate(r["subtype_names"])]
+
+# 4. draw and save the figure (a window opens; close it when you are done looking)
+fig = plot_pvd(result, Z_vals, p["regions"], titles, r["sustain_folder"] + "/pvd_4subtypes")
+fig.show()
+
+# Expected: a 2 x 2 figure, one panel per subtype, titles "Subtype 1: limbic" ...
+#   saved as results/toy/sustain_fast_test/pvd_4subtypes_all-subtypes.png
+#   Subtype 1 starts with red at L_MTL (stage 1), Subtype 2 at L_occipital,
+#   Subtype 3 at L_temporal, Subtype 4 at L_parietal.

@@ -1,0 +1,40 @@
+# S3 - z-score each region with a Gaussian mixture model (paper step 5)
+# First do S0. Then copy these lines into Python.
+
+import os, yaml, pandas as pd
+from src.zscore import zscore_regions
+
+# 1. read the settings (pipeline section of config.yaml); show all 10 columns when printing
+cfg = yaml.safe_load(open("config.yaml"))
+p = cfg["pipeline"]
+pd.set_option("display.width", 200); pd.set_option("display.max_columns", 20)
+
+# 2. read the toy data; the subject ID becomes the row name
+data = pd.read_csv(p["input_csv"], index_col=p["id_column"])
+
+# 3. z-score every region: GMM per region -> normal mean + SD -> z = (SUVR - mean) / SD
+z, reference = zscore_regions(data, p["regions"], p["gmm_components"], p["seed"])
+
+# 4. what the GMM found as "normal" for each region
+reference.round(3)
+
+# 5. (toy only) the TRUE normal values we used to make the data - compare with step 4
+cfg["toy_data"]["normal_suvr"]
+
+# 6. the z-scores of the first 5 people
+z.head().round(1)
+
+# 7. save the z-scores and the reference (needed later to z-score new people the same way)
+os.makedirs(p["output_folder"], exist_ok=True)
+z.to_csv(p["output_folder"] + "/zscores.csv")
+reference.to_csv(p["output_folder"] + "/zscore_reference.csv")
+
+# Expected:
+#   step 4 (what the GMM found):  L_MTL 1.227 / 0.119,  L_temporal 1.167 / 0.096,
+#          L_occipital 1.150 / 0.099,  L_frontal 1.065 / 0.078 ...
+#   step 5 (the truth):           MTL 1.20 / 0.10,  temporal 1.15 / 0.08,
+#          occipital 1.12 / 0.08,  frontal 1.05 / 0.07
+#   -> close, but the GMM's "normal" is a little too high and too wide (see notes)
+#   step 6: TOY_0001 (S4, stage 10): L_MTL 7.9, L_temporal 8.4 high; right side ~1
+#           TOY_0004 (AD): everything ~10-12;   TOY_0002/3/5 (tau-negative): around 0
+#   step 7: creates results/toy/zscores.csv and results/toy/zscore_reference.csv

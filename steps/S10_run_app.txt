@@ -1,0 +1,12 @@
+# S10 - start the Tau-typer app (Shiny for Python) on your Mac
+# This runs in the TERMINAL, not inside Python.
+
+cd "/Users/rosa/Desktop/ALLWork/Lund/Project/tau-PET_subtyping_algorithm"
+conda activate ./env
+shiny run app/app.py
+
+# Then open this address in your web browser:
+#     http://127.0.0.1:8000
+# You see 5 tabs: 1. Data & QC, 2. Normalization, 3. Run SuStaIn, 4. Figures, 5. Subtype analysis.
+# The app runs only on your Mac ("127.0.0.1" = this computer); nothing is sent anywhere.
+# To stop the app: go back to the Terminal and press Ctrl + C.

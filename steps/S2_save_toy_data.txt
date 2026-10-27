@@ -1,0 +1,45 @@
+# S2 – save the toy data as two CSV files in data/toy/
+# First do S0. Then copy these lines into Python.
+# (They redo the simulation from S1 themselves, so S1 is not needed first.)
+
+import os, yaml, numpy as np, pandas as pd
+from src.toy_data import assign_true_subtypes_and_stages, simulate_regional_suvr, simulate_covariates
+
+# 1. read the settings, and make ONE random generator from the seed (same data every time)
+cfg = yaml.safe_load(open("config.yaml"))["toy_data"]
+rng = np.random.default_rng(cfg["seed"])
+
+# 2. simulate: true subtype + stage -> regional SUVR -> age, sex, diagnosis, amyloid
+subtypes, stages = assign_true_subtypes_and_stages(cfg, rng)
+z, suvr = simulate_regional_suvr(cfg, subtypes, stages)
+covariates = simulate_covariates(cfg, subtypes, stages, rng)
+
+# 3. give every person an ID: TOY_0001 ... TOY_0500
+ids = [f"TOY_{i:04d}" for i in range(1, cfg["n_subjects"] + 1)]
+
+# 4. the DATA table (what the pipeline will see): ID + covariates + the 10 SUVR columns
+data = pd.DataFrame({"subject_id": ids, **covariates})
+data[cfg["regions"]] = suvr.round(3)
+
+# 5. the ANSWER KEY (the pipeline never reads it): ID + true subtype name + true stage
+#    subtype -1 -> "S0" (tau-negative), 0 -> "S1_limbic", 1 -> "S2_MTL_sparing", ...
+names = ["S0"] + list(cfg["subtype_region_order"])
+truth = pd.DataFrame({"subject_id": ids,
+                      "true_subtype": [names[s + 1] for s in subtypes],
+                      "true_stage": stages})
+
+# 6. save both tables as CSV files (the folder data/toy/ is created if it is missing)
+os.makedirs("data/toy", exist_ok=True)
+data.to_csv("data/toy/toy_tau.csv", index=False)
+truth.to_csv("data/toy/toy_truth.csv", index=False)
+
+# 7. look at what was saved
+data.head()
+truth["true_subtype"].value_counts()
+
+# Expected:
+#   data.head() -> first 5 people: subject_id, age, sex, diagnosis, amyloid_positive,
+#                  then L_MTL ... R_frontal. TOY_0001 is age 69.4, F, MCI, amyloid 1, L_MTL 2.168
+#   value_counts -> S0 300, S1_limbic 69, S3_posterior 62, S2_MTL_sparing 36,
+#                   S4_lateral_temporal 33
+# Then open data/toy/toy_tau.csv in Excel or Numbers to see the whole table.

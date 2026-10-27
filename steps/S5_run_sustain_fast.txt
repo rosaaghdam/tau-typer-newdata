@@ -1,0 +1,39 @@
+# S5 - run SuStaIn: FAST TEST (paper steps 7-9, with far fewer iterations)
+# First do S0 and S3 (S3 creates results/toy/zscores.csv). Then copy these lines into Python.
+# It takes about 10 minutes. Text and progress bars appear while it works;
+# wait until you see >>> again. Picture windows (the PVD plots) may pop up - just close them.
+# "UserWarning" messages are harmless.
+
+import yaml, numpy as np, pandas as pd
+from src.sustain_model import sustain_inputs, run_sustain
+
+# 1. settings + z-scores from S3 + SuStaIn's 3 inputs (same as S4)
+cfg = yaml.safe_load(open("config.yaml"))
+p, s = cfg["pipeline"], cfg["sustain"]
+z = pd.read_csv(p["output_folder"] + "/zscores.csv", index_col=p["id_column"])
+data, Z_vals, Z_max = sustain_inputs(z, p["regions"], s["z_events"], s["z_max"])
+
+# 2. fast-test settings: everything from the sustain section, but with the fast_test numbers
+fast = {**s, **s["fast_test"]}
+
+# 3. RUN SUSTAIN (fits 1, 2, 3 and 4 subtypes) - results go to their own folder
+model, out = run_sustain(data, Z_vals, Z_max, p["regions"], fast,
+                         p["output_folder"] + "/sustain_fast_test", p["seed"])
+
+# 4. unpack the outputs of the largest model (4 subtypes)
+samples_sequence, samples_f, ml_subtype, prob_ml_subtype, ml_stage, prob_ml_stage, prob_subtype_stage = out
+
+# 5. quick look: how many people at stage 0, and how many per subtype among the others
+stage0 = ml_stage.ravel() == 0
+stage0.sum()
+np.unique(ml_subtype.ravel()[~stage0], return_counts=True)
+
+# Expected (Claude's test run, about 9.5 minutes):
+#   stage0.sum()  -> 304                    (true number of tau-negative people: 300)
+#   np.unique(..) -> (array([0., 1., 2., 3.]), array([66, 58, 39, 33]))
+#   SuStaIn's subtype NUMBERS are its own (0 = the largest group), not our S1..S4 -
+#   S6 will show which pattern each number has.
+# Files created in results/toy/sustain_fast_test/:
+#   pickle_files/toy_subtype0.pickle ... toy_subtype3.pickle  (results for 1, 2, 3, 4 subtypes)
+#   toy_subtype0_PVD.png ... toy_subtype3_PVD.png             (positional variance diagrams)
+#   MCMC_likelihoods.png                                      (MCMC trace)
