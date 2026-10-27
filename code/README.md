@@ -24,5 +24,6 @@ main steps are in `steps/` (S0-S10). The app (`app/app.py`, step S10) uses the s
 | `01h_make_toy_clinical.py` | 1 | Adds 10 invented clinical variables -> data/toy/toy_tau_clinical.csv (extra test file to upload in the app) | done |
 | `02_run_sustain_full.py` | 2 | Runs pySuStaIn with the paper's settings on the toy z-scores (results/toy/sustain_full) | done |
 | `03_benchmark_app.py` | 3 | Times the app in memory: show a saved run, switch the model (branch review-improvements) | done |
+| `05a_check_reference_files.py` | new-0 | Lists which of Jake's files are in reference/jake/ (gitignored); if the trained model is there, loads it safely and prints its size | waiting for Jake's files |
 
 Steps 0c (tables) and the notes were writing only – see notes/.
