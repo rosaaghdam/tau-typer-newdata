@@ -1,0 +1,86 @@
+{
+  "L_MTL": [
+    "ctx-lh-entorhinal",
+    "Left-Hippocampus",
+    "Left-Amygdala"
+  ],
+  "R_MTL": [
+    "ctx-rh-entorhinal",
+    "Right-Hippocampus",
+    "Right-Amygdala"
+  ],
+  "L_Temporal": [
+    "ctx-lh-parahippocampal",
+    "ctx-lh-inferiortemporal",
+    "ctx-lh-fusiform",
+    "ctx-lh-middletemporal",
+    "ctx-lh-superiortemporal",
+    "ctx-lh-transversetemporal"
+  ],
+  "R_Temporal": [
+    "ctx-rh-parahippocampal",
+    "ctx-rh-inferiortemporal",
+    "ctx-rh-fusiform",
+    "ctx-rh-middletemporal",
+    "ctx-rh-superiortemporal",
+    "ctx-rh-transversetemporal"
+  ],
+  "L_Parietal": [
+    "ctx-lh-isthmuscingulate",
+    "ctx-lh-inferiorparietal",
+    "ctx-lh-precuneus",
+    "ctx-lh-superiorparietal",
+    "ctx-lh-supramarginal",
+    "ctx-lh-posteriorcingulate",
+    "ctx-lh-postcentral"
+  ],
+  "R_Parietal": [
+    "ctx-rh-isthmuscingulate",
+    "ctx-rh-inferiorparietal",
+    "ctx-rh-precuneus",
+    "ctx-rh-superiorparietal",
+    "ctx-rh-supramarginal",
+    "ctx-rh-posteriorcingulate",
+    "ctx-rh-postcentral"
+  ],
+  "L_Occipital": [
+    "ctx-lh-lateraloccipital",
+    "ctx-lh-lingual",
+    "ctx-lh-pericalcarine",
+    "ctx-lh-cuneus"
+  ],
+  "R_Occipital": [
+    "ctx-rh-lateraloccipital",
+    "ctx-rh-lingual",
+    "ctx-rh-pericalcarine",
+    "ctx-rh-cuneus"
+  ],
+  "L_Frontal": [
+    "ctx-lh-caudalanteriorcingulate",
+    "ctx-lh-caudalmiddlefrontal",
+    "ctx-lh-lateralorbitofrontal",
+    "ctx-lh-medialorbitofrontal",
+    "ctx-lh-parsopercularis",
+    "ctx-lh-parsorbitalis",
+    "ctx-lh-parstriangularis",
+    "ctx-lh-precentral",
+    "ctx-lh-rostralanteriorcingulate",
+    "ctx-lh-rostralmiddlefrontal",
+    "ctx-lh-superiorfrontal",
+    "ctx-lh-insula"
+  ],
+  "R_Frontal": [
+    "ctx-rh-caudalanteriorcingulate",
+    "ctx-rh-caudalmiddlefrontal",
+    "ctx-rh-lateralorbitofrontal",
+    "ctx-rh-medialorbitofrontal",
+    "ctx-rh-parsopercularis",
+    "ctx-rh-parsorbitalis",
+    "ctx-rh-parstriangularis",
+    "ctx-rh-precentral",
+    "ctx-rh-rostralanteriorcingulate",
+    "ctx-rh-rostralmiddlefrontal",
+    "ctx-rh-superiorfrontal",
+    "ctx-rh-insula"
+  ]
+}

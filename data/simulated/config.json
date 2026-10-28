@@ -1,0 +1,83 @@
+{
+  "verified_by_model_owner": false,
+  "synthetic_test_bundle": true,
+  "id_column": "filename",
+  "input_space": "model_ready_lobar",
+  "biomarker_order": [
+    "L_MTL",
+    "R_MTL",
+    "L_Temporal",
+    "R_Temporal",
+    "L_Parietal",
+    "R_Parietal",
+    "L_Occipital",
+    "R_Occipital",
+    "L_Frontal",
+    "R_Frontal"
+  ],
+  "Z_vals": [
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ],
+    [
+      2.0,
+      5.0,
+      10.0
+    ]
+  ],
+  "Z_max": [
+    10.0,
+    10.0,
+    20.0,
+    20.0,
+    20.0,
+    20.0,
+    20.0,
+    20.0,
+    20.0,
+    20.0
+  ],
+  "N_samples": 20
+}

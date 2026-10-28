@@ -1003,3 +1003,13 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
 - Open questions for Jake: which model (MultiTauBFTplus or Nat Med Cons2); Z_max; column order;
   normalize against training normals or user's own data (tracers!); input = FreeSurfer regions or
   lobes; keep the cleanup (possible [:,1] column issue after the label swap); subtype names; poor-fit flag.
+
+## 2026-10-27 - simulated data in Jake's format (data/simulated/)
+- From ChatGPT's data_simulate: 530 new + 1143 "training" scans, 66 FreeSurfer regions, known subtype/stage,
+  hand-built stand-in model (4 lobe orders, no training). Z_max made the same as Jake's notebook
+  ([10,10,20x8]) and regenerated. .gitignore allows data/simulated/ (all invented).
+- 05b + 05c = Jake's notebook steps on it -> expected_jake_steps.csv (answer key). Results: 290 / 92 / 73 /
+  41 / 34 (S0-S4); 86% subtypes right vs truth; 54% same stage as the ideal expected_predictions.csv,
+  because Jake's GMM normal is too high on this data (L_MTL 1.18 vs true 1.12).
+- Open: amyloid is text (Positive/Negative) - old app expects 0/1; generate.py reads Jake's real files for
+  column names; data are "too easy" (made by SuStaIn's own model, identical model samples).

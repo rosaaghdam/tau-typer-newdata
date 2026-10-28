@@ -1,0 +1,80 @@
+{
+  "seed": 20261027,
+  "subtype_names": [
+    "MTL-first toy",
+    "MTL-late toy",
+    "posterior-first toy",
+    "temporal-first toy"
+  ],
+  "orders": [
+    [
+      "L_MTL",
+      "R_MTL",
+      "L_Temporal",
+      "R_Temporal",
+      "L_Parietal",
+      "R_Parietal",
+      "L_Occipital",
+      "R_Occipital",
+      "L_Frontal",
+      "R_Frontal"
+    ],
+    [
+      "L_Parietal",
+      "R_Parietal",
+      "L_Occipital",
+      "R_Occipital",
+      "L_Temporal",
+      "R_Temporal",
+      "L_Frontal",
+      "R_Frontal",
+      "L_MTL",
+      "R_MTL"
+    ],
+    [
+      "L_Occipital",
+      "R_Occipital",
+      "L_Parietal",
+      "R_Parietal",
+      "L_Temporal",
+      "R_Temporal",
+      "L_MTL",
+      "R_MTL",
+      "L_Frontal",
+      "R_Frontal"
+    ],
+    [
+      "L_Temporal",
+      "R_Temporal",
+      "L_Parietal",
+      "R_Parietal",
+      "L_MTL",
+      "R_MTL",
+      "L_Occipital",
+      "R_Occipital",
+      "L_Frontal",
+      "R_Frontal"
+    ]
+  ],
+  "fractions": [
+    0.35,
+    0.28,
+    0.22,
+    0.15
+  ],
+  "study_counts": {
+    "bf2": 311,
+    "a4": 63,
+    "adni": 37,
+    "oasis": 23,
+    "mcgill": 21,
+    "avid_a05": 19,
+    "avid_lzax": 16,
+    "ucsf": 16,
+    "avid_llcf": 8,
+    "berkeley": 8,
+    "bf1": 6,
+    "avid_a08": 2
+  },
+  "posterior_samples": "20 identical copies; illustrative fixed model, not uncertainty estimates"
+}

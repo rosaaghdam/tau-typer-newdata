@@ -25,3 +25,7 @@ Github/
 
 # Jake's notebooks, trained model files and data - local only until the lab decides what can be shared
 reference/
+
+# Simulated data (all invented, safe to share) - allowed, including its stand-in model pickles
+!data/simulated/
+!data/simulated/*.pickle

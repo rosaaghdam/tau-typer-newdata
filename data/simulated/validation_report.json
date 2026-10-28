@@ -1,0 +1,25 @@
+{
+  "reference_rows": 1143,
+  "new_rows": 530,
+  "new_columns": 75,
+  "ROI_columns": 66,
+  "study_counts": {
+    "bf2": 311,
+    "a4": 63,
+    "adni": 37,
+    "oasis": 23,
+    "mcgill": 21,
+    "avid_a05": 19,
+    "avid_lzax": 16,
+    "ucsf": 16,
+    "avid_llcf": 8,
+    "berkeley": 8,
+    "bf1": 6,
+    "avid_a08": 2
+  },
+  "lobar_reconstruction_max_abs_error": 0.0,
+  "positive_subtype_accuracy": 0.9456066945606695,
+  "stage_mean_absolute_error": 0.1509433962264151,
+  "ids_disjoint": true,
+  "missing_new_values": 0
+}

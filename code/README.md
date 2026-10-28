@@ -25,5 +25,7 @@ main steps are in `steps/` (S0-S10). The app (`app/app.py`, step S10) uses the s
 | `02_run_sustain_full.py` | 2 | Runs pySuStaIn with the paper's settings on the toy z-scores (results/toy/sustain_full) | done |
 | `03_benchmark_app.py` | 3 | Times the app in memory: show a saved run, switch the model (branch review-improvements) | done |
 | `05a_check_reference_files.py` | new-0 | Lists which of Jake's files are in reference/jake/ (gitignored); if the trained model is there, loads it safely and prints its size | waiting for Jake's files |
+| `05b_jake_normalization_simulated.py` | new-1 | Jake's normalization (regions -> lobes, GMM on the training cohort, component 0 = normal) on data/simulated -> jake_steps_lobar_z.csv, jake_steps_normals.csv | done |
+| `05c_jake_apply_model_simulated.py` | new-1 | Jake's model step (newData, stage 0 -> subtype 0) on those z-scores -> data/simulated/expected_jake_steps.csv = the answer key for our pipeline | done |
 
 Steps 0c (tables) and the notes were writing only – see notes/.
