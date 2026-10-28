@@ -1,14 +1,16 @@
 # Tau-typer
 
-Automated tau-PET subtyping with **SuStaIn**, following Vogel et al. 2021 (*Nature Medicine*).
-A Shiny for Python app takes a table of regional tau-PET values, normalizes it, runs the
-**original pySuStaIn** (never changed or copied) and shows the subtypes, stages, figures and
-analyses.
+Applies an **already-trained** tau-PET **SuStaIn** model (Vogel et al. 2021, *Nature Medicine*) to new data and
+returns each person's subtype and stage. Nothing is trained: the app only calls the **original pySuStaIn**
+(`subtype_and_stage_individuals_newData`), never changed or copied. It follows Jake Vogel's
+`Apply_MT_to_NewData` notebook and reproduces its results exactly on the simulated test data.
+
+> **Stand-in model.** Until the lab's trained model files arrive, the app uses the invented model and
+> simulated data in `data/simulated/`. Swapping in the real files only changes `config.yaml` (section `model`).
 
 ## Install (once)
 
-The project uses one conda environment inside the project folder (`./env`), with pySuStaIn
-pinned to commit `708fa22`:
+The project uses one conda environment, with pySuStaIn pinned to commit `708fa22`:
 
 ```bash
 bash code/01a_create_environment.sh
@@ -16,10 +18,10 @@ bash code/01a_create_environment.sh
 
 ## Run the app
 
-From the project folder (see `steps/S10_run_app.txt`):
+From the project folder (see `steps/S11_run_new_app.txt`):
 
 ```bash
-conda activate ./env
+conda activate ../env
 ```
 
 ```bash
@@ -28,51 +30,42 @@ shiny run app/app.py
 
 Then open the address it prints (usually http://127.0.0.1:8000).
 
-| Tab | What you do there |
+| Step | What happens |
 |---|---|
-| 1. Data & QC | Upload a CSV (one row per person), match the columns, check the data, optional inclusion rule; explore the regions against age, sex, ... (with trend and interaction tests) |
-| 2. Normalization | z-scores (GMM, amyloid-negative CN reference, or already normalized), cut-points, Z_max |
-| 3. Run SuStaIn | Run pySuStaIn in the background (fast test or full run), cross-validation, saved runs |
-| 4. Figures | PVD, tau patterns, subtype probabilities, stages, choosing k, one person |
-| 5. Subtype analysis | Table 1, regional differences, stage vs age/cognition, asymmetry, compare runs |
-| 6. Report | Automatic written summary, PDF report, ZIP of every figure and table, results per person |
-| About | pySuStaIn version + commit, papers to cite, privacy |
+| 1. Upload & QC | Upload regional tau-PET data (FreeSurfer regions, one row per scan). Column names are matched to the model's regions whatever their spelling (`ctx-lh-entorhinal`, `CTX_LH_ENTORHINAL`, `entorhinal_L`); regions not found can be chosen by hand. Choose ID / study / clinical columns, filter studies or diagnoses, QC, the 10 lobes vs the training data, explore, demographics. |
+| 2. Normalize | z-scores on the model's scale. A: the training cohort's GMM normal (Jake's method), B: a GMM on your own data, C: your amyloid-negative CN people, D: values already z-scores. Normal table, GMM fits, z-score figures. |
+| 3. Apply model | The saved model gives each person a subtype, stage and probabilities (stage 0 = S0). Optional false-positive cleanup (Jake's entorhinal / precuneus check). The model's PVD, per-person table. |
+| 4. Results | Tau pattern per subtype, lobes per subtype, the brain (Vogel Fig. 1c/1e), stages and their certainty, subtype probabilities, subtypes per study, clinical summary. |
+| 5. Compare | The model applied after every normalization method, side by side, and against known labels (the simulated truth, or your own labels file): counts, agreement, adjusted Rand index, two-result cross-tables. |
+| 6. Report | Results per person (CSV), every figure and table (ZIP), a PDF report. |
 
-Try it with the simulated toy data: tab 1 → "Sample Data" → upload that file.
+Try it with the simulated example data: step 1, "Use the simulated example data".
 
 ## Folders
 
 | Folder | Contents |
 |---|---|
-| `app/` | the Shiny app (user interface only): `app.py` joins the tabs, one file per tab (`tab1_data.py` ... `tab_about.py`), `common.py` = shared settings and texts |
-| `tests/` | automatic checks of `src/` and of the app (run in memory, no browser) |
-| `src/` | all calculations (they only *call* pySuStaIn) |
+| `app/` | the Shiny app: `app.py` joins the steps, one file per step (`tab1_upload.py` ... `tab6_report.py`, `tab_about.py`), `common.py` = shared settings and helpers |
+| `src/` | all calculations: `trained_model.py` (load the model, lobes, apply, cleanup), `normalization.py`, `roi_names.py` (column matching), `compare.py`, `figures_apply.py` (+ older shared figure code) |
+| `data/simulated/` | invented test data in Jake's format + stand-in model + answer keys (safe to share) |
+| `tests/` | automatic checks (`test_apply.py` = calculations, `test_app.py` = the whole app in memory) |
 | `code/`, `steps/` | the step-by-step scripts used to build and check the pipeline |
-| `config.yaml` | every setting in one place |
-| `notes/` | plans, progress log, explanations (`SuStaIn.md`), review checklist |
-| `data/toy/` | simulated toy data (safe to share) |
-| `results/` | outputs and app runs - **not in git** |
+| `config.yaml` | every setting in one place (section `model` = the trained model's files) |
+| `reference/` | Jake's notebooks and files - **local only, not in git** |
 
-## Tests and speed
-
-From the project folder:
+## Tests
 
 ```bash
-./env/bin/python -m pytest tests -q
+../env/bin/python -m pytest tests -q
 ```
 
-```bash
-./env/bin/python code/03_benchmark_app.py
-```
-
-The app tests that show a run need a finished run in `results/app_runs/` (they are skipped otherwise).
-The benchmark times "show a saved run" and "switch model" with all tabs drawn at once.
+`code/07a_check_pipeline_vs_jake.py` checks that the pipeline gives exactly the answer key made with Jake's
+own code (`data/simulated/expected_jake_steps.csv`).
 
 ## Data privacy
 
-Real patient data never goes into git (`data/` and `results/` are ignored). The app keeps uploads and
-results on the computer that runs it. On a shared server set `runs.private_per_visit: true` in
-`config.yaml`: every visit then gets its own runs folder, which is deleted when the visit ends.
+Real participant data never goes into git (`data/` except `data/simulated/` and `data/toy/`, `reference/` and
+`results/` are ignored). The app keeps uploads in memory on the computer that runs it.
 
 ## Cite
 

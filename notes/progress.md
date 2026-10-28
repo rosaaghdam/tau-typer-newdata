@@ -1013,3 +1013,22 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
   because Jake's GMM normal is too high on this data (L_MTL 1.18 vs true 1.12).
 - Open: amyloid is text (Positive/Negative) - old app expects 0/1; generate.py reads Jake's real files for
   column names; data are "too easy" (made by SuStaIn's own model, identical model samples).
+
+## 2026-10-28 - first complete version of the new app (Rosa: build it all, then revise together)
+- Rosa asked for the whole first version at once (no step-by-step stops for this build).
+- New app = 6 steps: 1 Upload & QC, 2 Normalize, 3 Apply model, 4 Results, 5 Compare, 6 Report (+ About).
+  Old training tabs removed from the app (still in git history); old src/ code kept where reused.
+- New src: trained_model.py (load model package from config.yaml "model", lobes, Jake's GMM normal with the
+  LOWER-mean component chosen explicitly, apply_model = pySuStaIn newData, cleanup), normalization.py
+  (A training normal = Jake, B GMM on own data, C amyloid-negative CN, D already z), compare.py,
+  figures_apply.py. config.yaml: new sections "model" and "app".
+- pySuStaIn detail: newData numbers the subtypes by their average share (largest first); only Z_vals/Z_max
+  come from the object. Subtype names in config follow that order.
+- Check (code/07a, tests/test_apply.py): z-scores, subtypes, stages and probabilities identical to Jake's
+  steps (difference 0); cleanup gives 319/90/71/31/19 as Jake's notebook. 31 tests pass (4 old-app skips).
+- Example (stand-in model): methods A and B agree 98.9%; vs simulated truth 89-90% same subtype; method C
+  (healthy reference) has the best stage agreement with the truth (77.5% vs 59%).
+- Fixed while testing: ID column guess matched "id" inside "choroid"; pressing Apply before data stopped the
+  session (now a message).
+- Open: Jake's real model files; Z_max and subtype names of the real model; whether cleanup stays on by
+  default; method C reference labels (CN + SCD?).

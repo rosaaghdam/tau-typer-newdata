@@ -131,3 +131,35 @@ runs:
 figures:
   heatmap_vmax: 12            # colour scale maximum (z-score) of the tau heatmaps
   n_stage_groups: 5           # stages are shown in this many groups (30 events -> 1-6, 7-12, ... 25-30)
+
+# =====================================================================================================
+# NEW APP (2026-10-28): apply an ALREADY-TRAINED SuStaIn model to new data. Nothing is trained here.
+# For now: the STAND-IN model and simulated data in data/simulated/ - replace the file names below with
+# Jake's real model files when they arrive (no code changes needed).
+# =====================================================================================================
+model:
+  folder: data/simulated
+  is_stand_in: true                          # shows a warning in the app; set false for Jake's real model
+  samples_file: MultiTauBFTplus_subtype3.pickle   # pySuStaIn's saved model: samples_sequence, samples_f
+  settings_file: config.json                 # lobe order (biomarker_order), Z_vals (cut-points), Z_max
+  regions_file: region_definitions.json      # lobe -> its FreeSurfer regions (plain mean, as Jake)
+  roi_names_file: mod_cols.npy               # every region name the model's data had
+  reference_file: X_merge_preExp3.csv        # the training cohort's regional SUVRs (Jake's normalization)
+  reference_id_column: sid
+  # Subtype names in pySuStaIn's own order (largest average share first). Stand-in: invented names.
+  subtype_names: [MTL-first, MTL-late, posterior-first, temporal-first]
+  n_samples: 1000                            # MCMC samples used to subtype and stage (Jake: 1000)
+  gmm: {random_state: 123, tol: 0.00001, max_iter: 1000}    # Jake's GMM settings (ESM_utils)
+  cleanup:                                   # Jake's false-positive cleanup (notebook cells 56-65)
+    regions: [ctx-lh-entorhinal, ctx-rh-entorhinal, ctx-lh-precuneus, ctx-rh-precuneus]
+    threshold: 0.9                           # tau+ = P(abnormal) above this in at least one of the regions
+  poor_fit_threshold: 0.5                    # subtype probability below this = does not fit one subtype well
+  max_z_above_z_max: 10                      # z this far above Z_max (or below -this): person left out
+                                             # (pySuStaIn's likelihood becomes 0 and it would fail)
+
+app:
+  sample_data: data/simulated/df_sustain_true.csv      # "Use the example data" button in tab 1
+  sample_truth: data/simulated/new_data_truth.csv      # its true subtype and stage (tab 5)
+  sample_truth_columns: {id: filename, subtype: true_subtype, stage: true_stage}
+  suvr_min: 0.5                              # QC: SUVR outside this range is flagged
+  suvr_max: 4.0

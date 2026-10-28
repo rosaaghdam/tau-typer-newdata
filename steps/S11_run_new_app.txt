@@ -1,0 +1,12 @@
+# S11 - start the NEW Tau-typer app (applies the trained model) on your Mac
+# This runs in the TERMINAL, not inside Python. One line at a time:
+
+cd ~/Documents/Lund/Project/tau-PET_subtyping_algorithm/subtype_newData/tau-typer-newdata
+conda activate ../env
+shiny run app/app.py
+
+# Then open this address in Safari:   http://127.0.0.1:8000
+# Steps: 1 Upload & QC, 2 Normalize, 3 Apply model, 4 Results, 5 Compare, 6 Report.
+# Quick try: step 1 -> "Use the simulated example data" -> step 3 -> "Apply the model".
+# Expected in step 3 (Jake's method, cleanup on): 530 people, 211 tau+, 319 S0, 29 set to S0 by cleanup.
+# To stop the app: go back to the Terminal and press Ctrl + C.

@@ -6,7 +6,7 @@ import pandas as pd
 
 # Words that often appear in each column's name (lower case), most specific first.
 COLUMN_HINTS = {
-    "id": ["subject_id", "subject", "rid", "id"],
+    "id": ["subject_id", "filename", "scan_id", "subid", "sid", "subject", "rid", "id"],
     "age": ["age"],
     "sex": ["sex", "gender"],
     "diagnosis": ["diagnosis", "diag", "dx", "group"],
@@ -28,7 +28,9 @@ def guess_columns(columns):
     guesses = {}
     for role, hints in COLUMN_HINTS.items():
         exact = [by_lower_name[h] for h in hints if h in by_lower_name]
-        partial = [col for h in hints for col in columns if h in col.lower()]
+        # a short hint must be a whole word of the name ("id" in "subject id", not in "choroid")
+        partial = [col for h in hints for col in columns
+                   if (h in re.split(r"[^a-z0-9]+", col.lower())) or (len(h) > 3 and h in col.lower())]
         guesses[role] = (exact + partial + [None])[0]
     guesses["regions"] = [col for col in columns if REGION_PATTERN.match(col)]
     return guesses

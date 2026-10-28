@@ -20,6 +20,12 @@ NORM_METHODS = {"gmm": "GMM on everyone", "reference": "Reference group: amyloid
 CONFIG = yaml.safe_load(open(ROOT / "config.yaml"))    # all settings live in config.yaml
 
 RUNS_FOLDER = ROOT / CONFIG["runs"]["folder"]          # one sub-folder per SuStaIn run
+
+# The trained model (config.yaml "model"), read once when the app starts - it never changes while it runs
+from src.trained_model import load_model_package, lobe_values   # noqa: E402 (needs ROOT on the path)
+PACKAGE = load_model_package(CONFIG["model"], ROOT)
+TRAINING_LOBES = lobe_values(PACKAGE["reference"], PACKAGE["regions"])[PACKAGE["lobes"]]
+SUBTYPE_NAMES = PACKAGE["subtype_names"]
 SAMPLE_DATA = ROOT / "data" / "toy" / "sim_tau_400.csv"         # simulated data: 400 people, 3 sites (no truth)
 SAMPLE_TRUTH = ROOT / "data" / "toy" / "sim_tau_400_truth.csv"  # its true subtype and stage (Simulation check)
 FIG_HELP = {    # short help text above each tab-4 figure
@@ -235,3 +241,10 @@ def picture_tag(fig, alt):
     width = round(plt.imread(buffer).shape[1] * 96 / SHARP)
     source = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
     return ui.img(src=source, alt=alt, width=f"{width}px", class_="tt-figure")
+
+
+def optional_input(input, name):
+    """The value of a box that may not be drawn yet (drawn later by a render.ui): None until it exists.
+    'name in input' takes the reactive dependency without stopping the output (reading a box that is not
+    set yet would stop it silently)."""
+    return input[name]() if name in input else None
