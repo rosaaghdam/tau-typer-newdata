@@ -26,6 +26,9 @@ HELP = {
     "lobes": "Each lobe is the plain mean of its regions. Filled = your people, outline "
              "= the model's training cohort, both as % of the group. If your distributions sit far from the "
              "training ones, method A (training normal) will be off - consider method B or C in step 2.",
+    "upload": "Column names should match the input template (download it below). Region columns must "
+              "have no missing values: a person with a missing or non-numeric region value is left out. "
+              "Information columns (age, sex, diagnosis, amyloid) may have empty cells.",
     "format": "Fill in the template (button in the sidebar): one row per scan, the region columns named "
               "exactly as below, values = regional SUVRs. Optional columns can be left out. Other spellings "
               "of a region (e.g. CTX_LH_ENTORHINAL) are still recognized, but shown as a warning.",
@@ -36,7 +39,12 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
     ui.sidebar(
         ui.accordion(
             ui.accordion_panel("Data",
-                ui.input_file("up_file", "Upload regional tau-PET data (CSV)", accept=[".csv"]),
+                ui.div(ui.tags.label("Upload regional tau-PET data (CSV)", **{"for": "up_file"}),
+                       ui.popover(ui.tags.button("ⓘ", type="button", class_="btn btn-link btn-sm p-0",
+                                                 **{"aria-label": "About: the upload file"}),
+                                  HELP["upload"], title="Your file", placement="right"),
+                       class_="d-flex align-items-start gap-1 mb-1"),
+                ui.input_file("up_file", None, accept=[".csv"]),
                 ui.input_action_button("up_example", "Use the simulated example data", class_="btn-sm w-100"),
                 ui.download_button("up_template", "Download input template (CSV)",
                                    class_="btn-sm btn-outline-secondary w-100 mt-2"),
