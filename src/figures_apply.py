@@ -18,7 +18,7 @@ def _panels(lobes, width=2.9, height=2.3):
 
 
 def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (mean SUVR of its regions)"):
-    """Jake's notebook cell 14, for every lobe: the distribution of your people (filled) and of the model's
+    """For every lobe: the distribution of your people (filled) and of the model's
     training cohort (outline), as % of each group - do your values sit on the same scale?"""
     fig, axes, cells = _panels(lobes)
     for ax, lobe in zip(axes.flat, cells):
@@ -41,8 +41,8 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
 
 
 def plot_z_heatmap(z, lobes, vmin=0, vmax=10, order=None):
-    """Every person's z-scores (rows, sorted from least to most tau) per lobe (columns), as Jake's
-    Plot_Probabilites view with vmin 2 ... vmax 10: dark = far above normal."""
+    """Every person's z-scores (rows, sorted from least to most tau) per lobe (columns), as a
+    probability-map view with vmin 2 ... vmax 10: dark = far above normal."""
     values = z[lobes]
     rows = values.mean(axis=1).sort_values().index if order is None else order
     fig, ax = plt.subplots(figsize=(0.55 * len(lobes) + 2.5, 6.5))
@@ -78,7 +78,7 @@ def plot_z_histograms(z, lobes, cut_points=(2, 5, 10)):
 
 
 def plot_lobe_boxplots(z, table, lobes, names, colors=None):
-    """Jake's cell 69: z-score of every lobe per group (S0 grey, then each subtype in its colour)."""
+    """z-score of every lobe per group (S0 grey, then each subtype in its colour)."""
     k = len(names)
     shades = [S0_COLOR] + list(subtype_colors(k, colors))
     groups = [0] + list(range(1, k + 1))
@@ -103,7 +103,7 @@ def plot_lobe_boxplots(z, table, lobes, names, colors=None):
 
 
 def plot_stage_histograms(table, names, n_events, colors=None):
-    """Jake's cell 70: the stages of each subtype's people (one panel per subtype, same axes)."""
+    """The stages of each subtype's people (one panel per subtype, same axes)."""
     k = len(names)
     shades = subtype_colors(k, colors)
     fig, axes = plt.subplots(1, k, figsize=(3.2 * k, 2.8), sharey=True, squeeze=False)

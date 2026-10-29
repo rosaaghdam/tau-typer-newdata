@@ -24,10 +24,10 @@ main steps are in `steps/` (S0-S10). The app (`app/app.py`, step S10) uses the s
 | `01h_make_toy_clinical.py` | 1 | Adds 10 invented clinical variables -> data/toy/toy_tau_clinical.csv (extra test file to upload in the app) | done |
 | `02_run_sustain_full.py` | 2 | Runs pySuStaIn with the paper's settings on the toy z-scores (results/toy/sustain_full) | done |
 | `03_benchmark_app.py` | 3 | Times the app in memory: show a saved run, switch the model (branch review-improvements) | done |
-| `05a_check_reference_files.py` | new-0 | Lists which of Jake's files are in reference/jake/ (gitignored); if the trained model is there, loads it safely and prints its size | waiting for Jake's files |
-| `05b_jake_normalization_simulated.py` | new-1 | Jake's normalization (regions -> lobes, GMM on the training cohort, component 0 = normal) on data/simulated -> jake_steps_lobar_z.csv, jake_steps_normals.csv | done |
-| `05c_jake_apply_model_simulated.py` | new-1 | Jake's model step (newData, stage 0 -> subtype 0) on those z-scores -> data/simulated/expected_jake_steps.csv = the answer key for our pipeline | done |
+| `05a_check_reference_files.py` | new-0 | Lists which of the original files are in reference/original/ (gitignored); if the trained model is there, loads it safely and prints its size | waiting for the original files |
+| `05b_reference_normalization_simulated.py` | new-1 | the reference normalization (regions -> lobes, GMM on the training cohort, component 0 = normal) on data/simulated -> reference_pipeline_lobar_z.csv, reference_pipeline_normals.csv | done |
+| `05c_reference_apply_model_simulated.py` | new-1 | the reference model step (newData, stage 0 -> subtype 0) on those z-scores -> data/simulated/expected_reference_pipeline.csv = the answer key for our pipeline | done |
 | `06a_check_region_matching.py` | tab1-1 | Checks src/roi_names.match_regions: finds the model's 66 regions under other name styles; reports missing / doubled | done |
-| `07a_check_pipeline_vs_jake.py` | app-1 | The new app's pipeline (src/trained_model.py, normalization.py) vs Jake's steps: lobes, z-scores, subtypes, stages and probabilities identical; cleanup 319/90/71/31/19 | done |
+| `07a_check_pipeline_vs_reference.py` | app-1 | The new app's pipeline (src/trained_model.py, normalization.py) vs the reference pipeline: lobes, z-scores, subtypes, stages and probabilities identical; cleanup 319/90/71/31/19 | done |
 
 Steps 0c (tables) and the notes were writing only – see notes/.

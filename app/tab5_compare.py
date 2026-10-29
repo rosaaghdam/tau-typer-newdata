@@ -1,5 +1,5 @@
 """Tab 5 - Compare: apply the model after every normalization method and compare the results with each
-other, or with known labels (the simulated data's truth, or your own labels file) - Jake's cells 94-99."""
+other, or with known labels (the simulated data's truth, or your own labels file)."""
 import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException

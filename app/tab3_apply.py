@@ -16,8 +16,8 @@ MODEL = CONFIG["model"]
 PVD_HELP = ("The trained model itself, drawn by pySuStaIn (positional variance diagram): rows = lobes, columns = "
             "stages; red = the lobe reaches z 2, magenta = z 5, blue = z 10. Dark = the event is (almost) always at "
             "that stage in the model's MCMC samples. tau+ = your people assigned to the subtype.")
-COUNT_HELP = "People per group: before Jake's false-positive cleanup and after it (if chosen)."
-CLEAN_HELP = ("Jake's cleanup (notebook cells 56-65): for entorhinal and precuneus (both sides) a Gaussian mixture "
+COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
+CLEAN_HELP = ("False-positive check: for entorhinal and precuneus (both sides) a Gaussian mixture "
               "fitted on the TRAINING cohort gives each person's probability of abnormal tau. People with a subtype "
               "but no region above the threshold are set to S0 (stage 0).")
 
@@ -30,7 +30,7 @@ def tile(value, label):
 panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sidebar(
     ui.sidebar(
         ui.output_ui("ap_method_note"),
-        ui.input_checkbox("ap_cleanup", "Jake's false-positive cleanup (entorhinal / precuneus)", value=True),
+        ui.input_checkbox("ap_cleanup", "False-positive check (entorhinal / precuneus)", value=True),
         ui.input_numeric("ap_poor", "Poor fit: subtype probability below", value=MODEL["poor_fit_threshold"],
                          min=0, max=1, step=0.05),
         ui.input_numeric("ap_samples", "MCMC samples used", value=MODEL["n_samples"], min=10, max=100000, step=100),
@@ -114,7 +114,7 @@ def server(input, output, session, shared):
 
     @render.ui
     def ap_model_info():
-        stand_in = ui.div(ui.strong("Stand-in model. "), "These are invented test sequences, not Jake's trained "
+        stand_in = ui.div(ui.strong("Stand-in model. "), "These are invented test sequences, not the real trained "
                           "model - results only test the software.", class_="alert alert-warning") \
             if MODEL.get("is_stand_in") else None
         z_max = ", ".join(f"{v:g}" for v in PACKAGE["Z_max"])

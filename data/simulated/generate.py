@@ -22,7 +22,7 @@ for side, hemi in [('L', 'lh'), ('R', 'rh')]:
     regions[f'{side}_Frontal'] = [c for c in rois if hemi in c and c not in used and 'paracentral' not in c]
 labels = list(regions)
 zvals = np.tile([2., 5., 10.], (10, 1))
-zmax = np.array([10.]*2 + [20.]*8)   # same as the notebook Jake ran (cell 43)
+zmax = np.array([10.]*2 + [20.]*8)   # same as the reference pipeline
 # Illustrative spatial orders, not estimated Nature Medicine subtype sequences.
 orders = [
     [0,1,2,3,4,5,6,7,8,9],

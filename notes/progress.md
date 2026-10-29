@@ -304,7 +304,7 @@
 - Now: first SuStaIn run (S5) with fixed Z_max = 15.
 - Later: add `z_max_method: fixed | percentile` to config.yaml; run Strategy 3 on toy data to
   answer Rosa's question "how much does the SuStaIn result depend on Z_max?"; then Strategy 2.
-- Ask Jacob Vogel which Z_max he used.
+- Ask the model's authors which Z_max was used.
 
 ## 2026-10-15 – S5: first SuStaIn run (fast test)
 
@@ -947,16 +947,16 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
   as covariates in the statistics). New: optional age (+ sex) adjustment before normalization (learned
   in amyloid-negative CN, W-score style; Soleimani-Meigooni 2020 Brain, Iaccarino 2021 Cereb Cortex use
   age-adjusted W-scores) - for sensitivity analyses; and "Adjust tests for" in tab 5.
-- Still open: choroid plexus regression (needs a choroid plexus column) - ask Jake for details.
+- Still open: choroid plexus regression (needs a choroid plexus column) - ask the model's authors for details.
 - Review: per-region cut-points + Z_max (checkbox + tab). Paper: same events (2, 5, 10) for all regions in the main analysis; data-driven per-region events (GMM 1-5 components, AIC) as replication - not built yet.
 - TODO before sharing the repo: remove the "Co-Authored-By: Claude" lines from the old commit messages (rewrite the commit log + force push, backup first). New commits no longer have them (Rosa, 2026-10-21).
 - Review: covariate adjustment = choose candidates from the file, tested per region in the healthy
   reference group, only significant ones removed (Young 2018). Reference group choice: CN + SCD
-  (default) or CN only. ASK JAKE: should the normal reference group include amyloid-negative SCD?
+  (default) or CN only. OPEN QUESTION: should the normal reference group include amyloid-negative SCD?
 - Note: with many regions x covariates, about 5% of tests are significant by chance (toy data:
   education in 1 of 10 regions). An FDR option could be added if wanted.
 - Review: Rosa found that "diagnosis" could be chosen as a covariate (no warning) -> fixed: diagnosis/amyloid not offered, warning for disease-like names, constant covariates skipped.
-- Review: sidebar shortened (notes removed); p-value limit box; reference group set in config.yaml only (cn_scd) until Jake answers.
+- Review: sidebar shortened (notes removed); p-value limit box; reference group set in config.yaml only (cn_scd) until this is answered.
 
 ## 2026-10-21 - review of tabs 3-4 (Rosa's comments 1-9)
 - Quick result: "event order" column per subtype.
@@ -992,43 +992,43 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
    only the other columns and the z-scores).
 7. (i) help + full-screen cards on the figures of tabs 1-3 too.
 
-## 2026-10-27 - new repo tau-typer-newdata (new direction: apply Jake's trained model)
+## 2026-10-27 - new repo tau-typer-newdata (new direction: apply the trained model)
 - New repo = copy of tau-typer (frontend-design, af41240), fresh history. reference/ gitignored.
-- Explored Jake's Apply_MT_to_NewData notebook: regions -> 10 lobes (plain mean), z-scores against the
+- Explored the original Apply_MT_to_NewData notebook: regions -> 10 lobes (plain mean), z-scores against the
   TRAINING cohort's GMM-normal people (mean/SD), cut-points [2,5,10], Z_max [10,10,20x8], model
   MultiTauBFTplus_subtype3.pickle, subtype_and_stage_individuals_newData (N_samples 1000), stage 0 ->
   subtype 0, then false-positive cleanup (entorhinal/precuneus GMM, P > 0.9).
-- Missing to reproduce it: model pickle, training normal mean/SD (or raw training file), Jake's test
+- Missing to reproduce it: model pickle, training normal mean/SD (or raw training file), the original test
   input and output CSVs.
-- Open questions for Jake: which model (MultiTauBFTplus or Nat Med Cons2); Z_max; column order;
+- Open questions for the model's authors: which model (MultiTauBFTplus or Nat Med Cons2); Z_max; column order;
   normalize against training normals or user's own data (tracers!); input = FreeSurfer regions or
   lobes; keep the cleanup (possible [:,1] column issue after the label swap); subtype names; poor-fit flag.
 
-## 2026-10-27 - simulated data in Jake's format (data/simulated/)
+## 2026-10-27 - simulated data in the original input format (data/simulated/)
 - From ChatGPT's data_simulate: 530 new + 1143 "training" scans, 66 FreeSurfer regions, known subtype/stage,
-  hand-built stand-in model (4 lobe orders, no training). Z_max made the same as Jake's notebook
+  hand-built stand-in model (4 lobe orders, no training). Z_max made the same as the reference notebook
   ([10,10,20x8]) and regenerated. .gitignore allows data/simulated/ (all invented).
-- 05b + 05c = Jake's notebook steps on it -> expected_jake_steps.csv (answer key). Results: 290 / 92 / 73 /
+- 05b + 05c = the reference pipeline on it -> expected_reference_pipeline.csv (answer key). Results: 290 / 92 / 73 /
   41 / 34 (S0-S4); 86% subtypes right vs truth; 54% same stage as the ideal expected_predictions.csv,
-  because Jake's GMM normal is too high on this data (L_MTL 1.18 vs true 1.12).
-- Open: amyloid is text (Positive/Negative) - old app expects 0/1; generate.py reads Jake's real files for
+  because the reference GMM normal is too high on this data (L_MTL 1.18 vs true 1.12).
+- Open: amyloid is text (Positive/Negative) - old app expects 0/1; generate.py reads the original files for
   column names; data are "too easy" (made by SuStaIn's own model, identical model samples).
 
 ## 2026-10-28 - first complete version of the new app (Rosa: build it all, then revise together)
 - Rosa asked for the whole first version at once (no step-by-step stops for this build).
 - New app = 6 steps: 1 Upload & QC, 2 Normalize, 3 Apply model, 4 Results, 5 Compare, 6 Report (+ About).
   Old training tabs removed from the app (still in git history); old src/ code kept where reused.
-- New src: trained_model.py (load model package from config.yaml "model", lobes, Jake's GMM normal with the
+- New src: trained_model.py (load model package from config.yaml "model", lobes, the reference GMM normal with the
   LOWER-mean component chosen explicitly, apply_model = pySuStaIn newData, cleanup), normalization.py
-  (A training normal = Jake, B GMM on own data, C amyloid-negative CN, D already z), compare.py,
+  (A training normal = reference pipeline, B GMM on own data, C amyloid-negative CN, D already z), compare.py,
   figures_apply.py. config.yaml: new sections "model" and "app".
 - pySuStaIn detail: newData numbers the subtypes by their average share (largest first); only Z_vals/Z_max
   come from the object. Subtype names in config follow that order.
-- Check (code/07a, tests/test_apply.py): z-scores, subtypes, stages and probabilities identical to Jake's
-  steps (difference 0); cleanup gives 319/90/71/31/19 as Jake's notebook. 31 tests pass (4 old-app skips).
+- Check (code/07a, tests/test_apply.py): z-scores, subtypes, stages and probabilities identical to the reference
+  pipeline (difference 0); cleanup gives 319/90/71/31/19 as the reference notebook. 31 tests pass (4 old-app skips).
 - Example (stand-in model): methods A and B agree 98.9%; vs simulated truth 89-90% same subtype; method C
   (healthy reference) has the best stage agreement with the truth (77.5% vs 59%).
 - Fixed while testing: ID column guess matched "id" inside "choroid"; pressing Apply before data stopped the
   session (now a message).
-- Open: Jake's real model files; Z_max and subtype names of the real model; whether cleanup stays on by
+- Open: the real model files; Z_max and subtype names of the real model; whether cleanup stays on by
   default; method C reference labels (CN + SCD?).

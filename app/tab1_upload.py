@@ -22,7 +22,7 @@ HELP = {
                 "another spelling; 'missing' or 'more than one' = choose the column yourself in the sidebar. "
                 "A matching name does not prove the values were measured the same way (atlas, tracer, "
                 "reference region).",
-    "lobes": "Jake's notebook (cell 14): each lobe is the plain mean of its regions. Filled = your people, outline "
+    "lobes": "Each lobe is the plain mean of its regions. Filled = your people, outline "
              "= the model's training cohort, both as % of the group. If your distributions sit far from the "
              "training ones, method A (training normal) will be off - consider method B or C in step 2.",
     "missing": "Every column with missing values (most missing on top) against every row (dark = missing).",

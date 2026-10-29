@@ -100,7 +100,7 @@ normalization:
                               # likelihood becomes 0 for such a person and the run fails
   # Healthy reference group (reference-group normalization + covariate adjustment), always
   # amyloid-negative: "cn_scd" = CN + SCD (Vogel/BioFINDER count SCD as unimpaired) or
-  # "cn" = CN only (Young 2018). Default cn_scd - to check with Jake.
+  # "cn" = CN only (Young 2018). Default cn_scd.
   reference_group: cn_scd
   reference_labels_cn: [CN, CU, HC, control]
   reference_labels_scd: [SCD]
@@ -135,22 +135,22 @@ figures:
 # =====================================================================================================
 # NEW APP (2026-10-28): apply an ALREADY-TRAINED SuStaIn model to new data. Nothing is trained here.
 # For now: the STAND-IN model and simulated data in data/simulated/ - replace the file names below with
-# Jake's real model files when they arrive (no code changes needed).
+# the real trained model's files when they arrive (no code changes needed).
 # =====================================================================================================
 model:
   folder: data/simulated
-  is_stand_in: true                          # shows a warning in the app; set false for Jake's real model
+  is_stand_in: true                          # shows a warning in the app; set false for the real model
   samples_file: MultiTauBFTplus_subtype3.pickle   # pySuStaIn's saved model: samples_sequence, samples_f
   settings_file: config.json                 # lobe order (biomarker_order), Z_vals (cut-points), Z_max
-  regions_file: region_definitions.json      # lobe -> its FreeSurfer regions (plain mean, as Jake)
+  regions_file: region_definitions.json      # lobe -> its FreeSurfer regions (plain mean)
   roi_names_file: mod_cols.npy               # every region name the model's data had
-  reference_file: X_merge_preExp3.csv        # the training cohort's regional SUVRs (Jake's normalization)
+  reference_file: X_merge_preExp3.csv        # the training cohort's regional SUVRs (method A normalization)
   reference_id_column: sid
   # Subtype names in pySuStaIn's own order (largest average share first). Stand-in: invented names.
   subtype_names: [MTL-first, MTL-late, posterior-first, temporal-first]
-  n_samples: 1000                            # MCMC samples used to subtype and stage (Jake: 1000)
-  gmm: {random_state: 123, tol: 0.00001, max_iter: 1000}    # Jake's GMM settings (ESM_utils)
-  cleanup:                                   # Jake's false-positive cleanup (notebook cells 56-65)
+  n_samples: 1000                            # MCMC samples used to subtype and stage (reference pipeline: 1000)
+  gmm: {random_state: 123, tol: 0.00001, max_iter: 1000}    # GMM settings of the reference pipeline
+  cleanup:                                   # false-positive check (entorhinal / precuneus)
     regions: [ctx-lh-entorhinal, ctx-rh-entorhinal, ctx-lh-precuneus, ctx-rh-precuneus]
     threshold: 0.9                           # tau+ = P(abnormal) above this in at least one of the regions
   poor_fit_threshold: 0.5                    # subtype probability below this = does not fit one subtype well

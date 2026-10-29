@@ -35,13 +35,13 @@ def test_region_names_in_other_styles():
     assert list(table["status"]) == ["more than one", "missing"]
 
 
-def test_jakes_steps_are_reproduced_exactly(package, new):
-    """Lobes -> training-normal z-scores -> model: equal to the answer key made with Jake's own code."""
+def test_reference_pipeline_is_reproduced_exactly(package, new):
+    """Lobes -> training-normal z-scores -> model: equal to the answer key made with the original code."""
     z, _, _, _ = normalize("training", lobe_values(new, package["regions"]), package, CFG["gmm"])
-    key_z = pd.read_csv(SIM / "jake_steps_lobar_z.csv", index_col="filename").loc[z.index, package["lobes"]]
+    key_z = pd.read_csv(SIM / "reference_pipeline_lobar_z.csv", index_col="filename").loc[z.index, package["lobes"]]
     assert np.allclose(z.to_numpy(), key_z.to_numpy(), atol=1e-12)
     table, _ = apply_model(z, package, CFG["n_samples"])
-    key = pd.read_csv(SIM / "expected_jake_steps.csv", index_col="filename").loc[table.index]
+    key = pd.read_csv(SIM / "expected_reference_pipeline.csv", index_col="filename").loc[table.index]
     assert (table["subtype_number"] == key["subtype"]).all() and (table["ml_stage"] == key["stage"]).all()
     assert np.allclose(table[[f"p_S{n}" for n in range(1, 5)]], key[[f"p_S{n}" for n in range(1, 5)]], atol=1e-12)
 
@@ -53,7 +53,7 @@ def test_cleanup_sets_tau_negative_people_to_s0(package, new):
                                      CFG["gmm"])
     cleaned = clean_up(table, tau_pos)
     assert notes == []
-    assert cleaned["subtype_number"].value_counts().sort_index().tolist() == [319, 90, 71, 31, 19]   # Jake's notebook
+    assert cleaned["subtype_number"].value_counts().sort_index().tolist() == [319, 90, 71, 31, 19]   # the reference notebook
     assert (cleaned.loc[cleaned["cleaned"], ["subtype_number", "ml_stage"]] == 0).all().all()
 
 

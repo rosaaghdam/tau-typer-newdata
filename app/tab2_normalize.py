@@ -14,7 +14,7 @@ GMM_HELP = ("One lobe: histogram of the values the Gaussian mixture saw (trainin
             "and its bell curves; green = normal. Dashed lines = the model's cut-points on the SUVR scale "
             "(normal mean + z x normal SD).")
 HEAT_HELP = ("Every person (row, least tau at the top) and lobe (column), coloured by z-score from 0 to 10 (as "
-             "Jake's Plot_Probabilites view). The model's events are at z 2, 5 and 10.")
+             "a probability-map view). The model's events are at z 2, 5 and 10.")
 HIST_HELP = "The z-scores of each lobe; dashed red lines = the model's cut-points (z 2, 5, 10)."
 
 

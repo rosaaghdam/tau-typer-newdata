@@ -9,7 +9,7 @@ counts were transcribed from the supplied screenshot (`avid_llcf` spelling).
 
 1. Four invented subtype trajectories reach z=2, 5 and 10 in different regional
    orders. These create spatial patterns rather than all regions moving together.
-   They are not Jake's learned subtype sequences or validated biological subtypes.
+   They are not the real model's learned subtype sequences or validated biological subtypes.
 2. Each participant receives a latent trajectory and stage (0–30). Gaussian noise
    with SD=1 is added in z-score space, matching the stand-in model's observation
    scale. Early stages and overlapping trajectories can be hard to distinguish.
@@ -37,7 +37,7 @@ counts were transcribed from the supplied screenshot (`avid_llcf` spelling).
 | `inferred.csv` | Stand-in model predictions for reference scans, not true labels. |
 | `new_data_truth.csv`, `reference_truth.csv` | Separate generation labels, clean z-scores and noisy observed z-scores. Never use truth columns as model features. |
 | `new_lobar_raw.csv`, `new_lobar_z.csv` | New scans as ten raw-like or standardized lobar values. |
-| `model_samples.npz` | Stand-in arrays for application; not Jake's trained model. |
+| `model_samples.npz` | Stand-in arrays for application; not the real trained model. |
 | `MultiTauBFTplus_subtype3.pickle`, `Cons2_subtype3.pickle` | Four-subtype stand-in dictionaries for notebook compatibility. |
 | `Cons2_subtype0.pickle` | One-subtype stand-in dictionary, for the notebook's otherwise unused load. |
 | `Inferred_subtypes_for_synAge.csv`, `Inferred_subtypes_for_synFluid.csv` | Optional illustrative comparison labels derived from truth with deliberate errors; no age/fluid prediction models were trained. |
@@ -65,11 +65,11 @@ not substitute for the lab's model or preprocessing when actual data arrive.
 
 ## Changes made in tau-typer-newdata (2026-10-27)
 
-- `generate.py`: Z_max changed to `[10, 10, 20, 20, 20, 20, 20, 20, 20, 20]` (what Jake's notebook actually ran,
+- `generate.py`: Z_max changed to `[10, 10, 20, 20, 20, 20, 20, 20, 20, 20]` (what the reference pipeline actually ran,
   cell 43), then all files regenerated with the same seed. `walkthrough_predictions.csv` not copied.
-- New answer key made with Jake's OWN normalization (GMM on the training cohort, not normalization.json):
-  `jake_steps_lobar_z.csv`, `jake_steps_normals.csv`, `expected_jake_steps.csv`
-  (code/05b and code/05c). Our pipeline must reproduce `expected_jake_steps.csv`.
+- New answer key made with the reference pipeline's own normalization (GMM on the training cohort, not normalization.json):
+  `reference_pipeline_lobar_z.csv`, `reference_pipeline_normals.csv`, `expected_reference_pipeline.csv`
+  (code/05b and code/05c). Our pipeline must reproduce `expected_reference_pipeline.csv`.
 - `expected_predictions.csv` stays the "ideal" answer (true normal values). The two differ (86% same subtype,
-  54% same stage) because Jake's GMM normal is higher than the true normal.
-- `generate.py` still reads column names from Jake's real files on Rosa's computer (open point).
+  54% same stage) because the reference GMM normal is higher than the true normal.
+- `generate.py` still reads column names from the original files on Rosa's computer (open point).

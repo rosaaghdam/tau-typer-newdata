@@ -41,6 +41,6 @@ CHOOSE every step. SuStaIn itself does not normalize; this tab decides what it s
 
 ## Open questions (from notes/progress.md)
 - The GMM "normal" is slightly too high/wide on toy data (S3) -> option 2.5 is meant for this.
-- Z_max: paper does not report it; ask Jacob Vogel.
+- Z_max: paper does not report it; ask the model's authors.
 - Real file format: lobes or Desikan-Killiany regions? (DK regions need averaging into lobes first.)
 - Choroid-plexus regression: the paper mentions it, no details.

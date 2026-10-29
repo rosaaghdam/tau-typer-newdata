@@ -13,7 +13,7 @@ def server(input, output, session, shared):
         info = pysustain_info()
         steps = ["1. Upload & QC - upload regional tau-PET data (FreeSurfer regions); the columns are matched to "
                  "the model's regions, filtered and checked, and averaged into the model's 10 lobes.",
-                 "2. Normalize - z-scores on the model's scale: the training cohort's normal (Jake's method), a "
+                 "2. Normalize - z-scores on the model's scale: the training cohort's normal, a "
                  "GMM on your own data, your amyloid-negative CN people, or values that already are z-scores.",
                  "3. Apply model - the SAVED SuStaIn model gives every person a subtype, a stage and their "
                  "probabilities (pySuStaIn's subtype_and_stage_individuals_newData); optional false-positive "

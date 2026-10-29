@@ -1,4 +1,4 @@
-"""Apply an ALREADY-TRAINED SuStaIn model to new people (Jake's Apply_MT_to_NewData notebook).
+"""Apply an ALREADY-TRAINED SuStaIn model to new people.
 
 Nothing is trained here: pySuStaIn's own subtype_and_stage_individuals_newData gives every person a
 subtype, a stage and their probabilities from the saved model (samples_sequence, samples_f).
@@ -56,15 +56,15 @@ def required_regions(package, cleanup_regions):
 
 
 def lobe_values(regional, regions):
-    """Jake's notebook cells 9-12: each lobe = the plain mean of its regions (pandas mean, as Jake).
+    """Each lobe = the plain mean of its regions (pandas mean, missing values skipped).
     regional: people x FreeSurfer regions (the model's names). regions: {lobe: [regions]}."""
     return pd.DataFrame({lobe: regional[rois].mean(axis=1) for lobe, rois in regions.items()}, index=regional.index)
 
 
 def gmm_normal(values, gmm_settings):
-    """Jake's "normal" group of one lobe or region (ESM_utils.model_tfm + his notebook cell 32):
+    """The "normal" group of one lobe or region (as ESM_utils.model_tfm):
     compare a 1- and a 2-component Gaussian mixture by BIC; if 2 fit better, the people in the
-    LOWER-mean component are normal (Jake assumed component 0 - the same when it is the lower one).
+    LOWER-mean component are normal (chosen explicitly, not by the component's number).
     Returns (normal people's mean, their SD, how many, the fitted 2-component model, a note)."""
     x = np.asarray(values, float).reshape(-1, 1)
     one = GaussianMixture(n_components=1, random_state=gmm_settings["random_state"]).fit(x)
@@ -86,10 +86,10 @@ def check_z(z, package, margin):
 
 
 def apply_model(z, package, n_samples):
-    """Jake's notebook cells 43-53: subtype and stage each person with the saved model. No training.
+    """Subtype and stage each person with the saved model. No training.
     z: people x lobes (z-scores). Returns one row per person: ml_subtype (1..k in pySuStaIn's order =
     largest average share first), prob_subtype, ml_stage, prob_stage, stage_sd, p_S1..p_Sk and
-    subtype_number (0 = S0: stage 0, as Jake)."""
+    subtype_number (0 = S0: stage 0)."""
     data = z[package["lobes"]].to_numpy(float)
     folder = tempfile.mkdtemp(prefix="tau_typer_apply_")  # pySuStaIn wants an output folder; nothing is saved
     try:
@@ -111,14 +111,14 @@ def apply_model(z, package, n_samples):
 
 
 def tau_positive(regional, reference, cleanup_regions, threshold, gmm_settings):
-    """Jake's notebook cells 56-63: for each cleanup region (entorhinal, precuneus, both sides) a
+    """False-positive check: for each cleanup region (entorhinal, precuneus, both sides) a
     Gaussian mixture is fitted on the TRAINING cohort's raw values; each new person gets P(abnormal) =
     the probability of the higher-mean component. Tau+ = P above threshold in at least one region.
     Returns (P table people x regions, tau+ Series, notes)."""
     probabilities, notes = {}, []
     for roi in cleanup_regions:
         _, _, _, two, note = gmm_normal(reference[roi].dropna(), gmm_settings)
-        if note:                                            # Jake skipped such a region too
+        if note:                                            # such a region is not used
             notes.append(f"{roi}: {note} - not used")
             continue
         abnormal = np.argmax(two.means_.ravel())
@@ -128,7 +128,7 @@ def tau_positive(regional, reference, cleanup_regions, threshold, gmm_settings):
 
 
 def clean_up(table, tau_pos):
-    """Jake's cell 65: people with a subtype but not tau+ become S0 (subtype 0, stage 0). The values before
+    """People with a subtype but not tau+ become S0 (subtype 0, stage 0). The values before
     are kept (subtype_before_cleanup, stage_before_cleanup); 'cleaned' marks the people changed."""
     table = table.copy()
     table["subtype_before_cleanup"] = table["subtype_number"]

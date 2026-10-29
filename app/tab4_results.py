@@ -1,4 +1,4 @@
-"""Tab 4 - Results: explore the subtypes and stages found by the trained model (Jake's notebook cells 69-80)."""
+"""Tab 4 - Results: explore the subtypes and stages found by the trained model."""
 import pandas as pd
 from shiny import render, ui
 from shiny.types import SafeException
@@ -13,17 +13,17 @@ from src.results import subtype_summary
 HELP = {
     "patterns": "Average z-score of each lobe (rows) in each subtype (columns), tau+ people only "
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
-    "boxes": "Jake's cell 69: each lobe's z-scores per group - S0 grey, subtypes in their colours. Dashed = z 2 "
+    "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Dashed = z 2 "
              "(the first cut-point).",
     "brain": "The subtypes on the brain (Vogel et al. 2021 Fig. 1c/1e): top, each subtype's average z-score; "
              "bottom, each subtype through the stages (people in groups of five stages). Each lobe is drawn on its "
              "Desikan-Killiany regions; grey = below z 2.",
     "stages": "Top: % of the tau+ people at each stage, coloured by subtype. Bottom: how sure the model is about "
               "each person's stage (SD of their stage probabilities); dashed red = your limit.",
-    "stage_hist": "Jake's cell 70: the stages of each subtype's people.",
+    "stage_hist": "The stages of each subtype's people.",
     "probs": "How clearly each tau+ person belongs to one subtype: each corner is a subtype; close to a corner = "
              "clearly that subtype, towards the middle = a mix.",
-    "studies": "% of each study's people in S0 and each subtype (Jake's cell 72). A subtype found in one study "
+    "studies": "% of each study's people in S0 and each subtype. A subtype found in one study "
                "only may be a scanner or processing effect.",
 }
 

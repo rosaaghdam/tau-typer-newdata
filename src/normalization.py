@@ -1,7 +1,7 @@
 """Turn the new people's lobe values (SUVR) into z-scores on the trained model's scale.
 
 z = (value - normal mean) / normal SD. The methods differ only in where "normal" comes from:
-  training  - Jake's notebook: the TRAINING cohort's GMM-normal people (reproduces his results)
+  training  - the TRAINING cohort's GMM-normal people (the reference pipeline)
   own_gmm   - the same GMM recipe, but on the uploaded people themselves
   reference - the uploaded amyloid-negative, cognitively normal people
   zscored   - the uploaded values already are z-scores (nothing is changed)
@@ -11,13 +11,13 @@ import pandas as pd
 from src.trained_model import gmm_normal, lobe_values
 
 METHODS = {
-    "training": "A. Training cohort's normal (Jake's method)",
+    "training": "A. Training cohort's normal",
     "own_gmm": "B. GMM on your own data",
     "reference": "C. Your amyloid-negative CN people",
     "zscored": "D. Already z-scores",
 }
 METHOD_HELP = {
-    "training": "As in Jake's notebook: for each lobe a Gaussian mixture is fitted on the model's TRAINING "
+    "training": "For each lobe a Gaussian mixture is fitted on the model's TRAINING "
                 "cohort; its lower (normal) bell curve's people give the normal mean and SD. Your data are "
                 "then on exactly the scale the model was trained on - only right if your PET data were made "
                 "like the training data (same tracer, reference region and processing).",

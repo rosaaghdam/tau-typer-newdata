@@ -23,7 +23,7 @@ Github/
 # Claude Code browser-pane settings (machine-specific)
 .claude/
 
-# Jake's notebooks, trained model files and data - local only until the lab decides what can be shared
+# Original notebooks, trained model files and data - local only until the lab decides what can be shared
 reference/
 
 # Simulated data (all invented, safe to share) - allowed, including its stand-in model pickles
