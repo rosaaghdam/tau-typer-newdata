@@ -48,7 +48,7 @@ panel = ui.nav_panel(step_title(2, "Normalize", "nm_status"), ui.layout_sidebar(
                                  figure_tools("nm_gmm"))),
         ui.nav_panel("z-scores", figure_card("z-scores per lobe", HIST_HELP, ui.output_image("nm_hist", height="auto"),
                                              figure_tools("nm_hist")),
-                     figure_card("All people at a glance", HEAT_HELP, ui.output_image("nm_heat", height="auto"),
+                     figure_card("Heatmap of lobar z-scores (people sorted by mean z)", HEAT_HELP, ui.output_image("nm_heat", height="auto"),
                                  figure_tools("nm_heat"))),
         ui.nav_panel("Table", ui.output_data_frame("nm_z_table"), table_tools("nm_z")))))
 
@@ -210,7 +210,7 @@ def server(input, output, session, shared):
     def nm_heat():
         return None if shared["lobes"]() is None else as_picture(make_heat())
 
-    add_figure(report_items, "nm_heat", "z-scores of all people", make_heat, in_report=True)
+    add_figure(report_items, "nm_heat", "Heatmap of lobar z-scores (people sorted by mean z)", make_heat, in_report=True)
 
     @render.data_frame
     def nm_z_table():

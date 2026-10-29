@@ -48,7 +48,7 @@ def plot_z_heatmap(z, lobes, vmin=0, vmax=10, order=None):
     fig, ax = plt.subplots(figsize=(0.55 * len(lobes) + 2.5, 6.5))
     image = ax.imshow(values.loc[rows].to_numpy(float), aspect="auto", cmap="magma_r", vmin=vmin, vmax=vmax,
                       interpolation="nearest")
-    ax.set_xticks(range(len(lobes)), [nice_region(l) for l in lobes], rotation=60, ha="right")
+    ax.set_xticks(range(len(lobes)), [nice_region(l) for l in lobes], rotation=90)
     ax.set_yticks([])
     ax.set_ylabel(f"people (n = {len(rows)}), least tau at the top")
     for side in ax.spines.values():
