@@ -53,7 +53,7 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
         ui.nav_panel("Lobes",
                      figure_card("Your lobes vs the model's training data", HELP["lobes"],
                                  ui.output_image("up_lobes_plot", height="auto"), figure_tools("up_lobes")),
-                     ui.h6("Lobe values (first rows)", class_="mt-3"), ui.output_data_frame("up_lobes_head"),
+                     ui.h6("Lobe values (everyone kept; scroll the table)", class_="mt-3"), ui.output_data_frame("up_lobes_head"),
                      table_tools("up_lobes_table")),
         ui.nav_panel("Demographics", ui.output_data_frame("up_demographics"), table_tools("up_demo"),
                      ui.h6("People per study", class_="mt-3"), ui.output_data_frame("up_studies")))))
@@ -305,7 +305,7 @@ def server(input, output, session, shared):
     @render.data_frame
     def up_head():
         table = raw()
-        return None if table is None else render.DataGrid(table.head(50), height="420px")
+        return None if table is None else render.DataGrid(table, height="480px")
 
     @render.ui
     def up_match_note():
@@ -376,7 +376,7 @@ def server(input, output, session, shared):
 
     @render.data_frame
     def up_lobes_head():
-        return None if lobes() is None else render.DataGrid(lobes().round(3).reset_index().head(50))
+        return None if lobes() is None else render.DataGrid(lobes().round(3).reset_index(), height="480px")
 
     add_table(report_items, "up_lobes_table", "Lobe values", lambda: lobes().round(4))
 
