@@ -37,7 +37,7 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                 ui.output_ui("up_summary")),
             ui.accordion_panel("Columns", ui.output_ui("up_roles")),
             ui.accordion_panel("Regions not found", ui.output_ui("up_fixes")),
-            ui.accordion_panel("Filter", ui.output_ui("up_filters")),
+            ui.accordion_panel("Filter", ui.output_ui("up_filters"), ui.output_ui("up_filter_note")),
             open=["Data", "Columns", "Filter"], multiple=True),
         width=330, open="always"),
     ui.navset_tab(
@@ -189,10 +189,11 @@ def server(input, output, session, shared):
     @reactive.calc
     def filtered():
         """(the rows kept: filters + complete regions + the inclusion rule if ticked, indexed by the ID column;
-        the rule's table of reasons, or None). (None, None) before an upload."""
+        the rule's table of reasons, or None; [(step, people it removed), ...] in the order applied).
+        (None, None, None) before an upload."""
         table, matched = raw(), match()
         if table is None or matched is None or not lobe_regions_found():
-            return None, None
+            return None, None, None
         cols = columns()
         table = table.copy()
         ids = table[cols["id"]].astype(str) if cols["id"] else pd.Series([f"row {i + 1}" for i in range(len(table))])
@@ -200,24 +201,45 @@ def server(input, output, session, shared):
             ids = pd.Series([f"row {i + 1}" for i in range(len(table))])
         table.index = pd.Index(ids.to_numpy(), name="ID")
         keep = pd.Series(True, index=table.index)
-        for role in ("cohort", "diagnosis"):
+        steps = []                                                # how many people each step removes, in order
+        for role, label in (("cohort", "by study"), ("diagnosis", "by diagnosis")):
             if cols[role]:
                 chosen = optional_input(input, f"up_keep_{role}")
                 if chosen is not None:
+                    before = int(keep.sum())
                     keep &= table[cols[role]].astype(str).isin(chosen).to_numpy()
+                    steps.append((label, before - int(keep.sum())))
         found = matched.dropna(subset=["column"])
         values = table[found["column"].tolist()].apply(pd.to_numeric, errors="coerce")
         complete = values.notna().all(axis=1)
+        steps.append(("with missing region values", int(keep.sum()) - int((keep & complete).sum())))
         kept, reasons = table[keep & complete], None
         if optional_input(input, "up_rule"):
             rule = CONFIG["inclusion"]
+            before = len(kept)
             kept, reasons = apply_inclusion_rule(kept, cols, rule["min_age_cn"], rule["cn_labels"],
                                                  rule["impaired_labels"])
-        return kept, reasons
+            steps.append(("by the inclusion rule", before - len(kept)))
+        return kept, reasons, steps
 
     def data():
         """The rows kept, indexed by the ID column. None before an upload."""
         return filtered()[0]
+
+    @render.ui
+    def up_filter_note():
+        """Under the filters, updated with every change: how many people are kept, and what each filter removed."""
+        table = raw()
+        kept, _, steps = filtered()
+        if table is None or kept is None:
+            return None
+        total = len(table)
+        removed = [f"{n} {label}" for label, n in steps if n > 0]
+        return ui.div(ui.p(f"Kept: {len(kept)} of {total} people ({100 * len(kept) / max(total, 1):.0f}%).",
+                           class_="fw-bold mb-1", style="color: var(--tt-accent);"),
+                      ui.p("Removed: " + " · ".join(removed) if removed else "Nobody removed.",
+                           class_="small text-muted mb-0"),
+                      class_="mt-2 pt-2", style="border-top: 1px solid var(--tt-line);")
 
     shared["data"] = data
 

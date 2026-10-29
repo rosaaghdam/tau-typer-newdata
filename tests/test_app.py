@@ -25,6 +25,8 @@ def test_whole_app_with_the_example_data():
         ok(ts, "up_head", "up_match_table", "up_qc", "up_missing", "up_lobes_plot", "up_demographics",
            "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
+        note = str(ts.get_output("up_filter_note").value)
+        assert "Kept: 530 of 530 people (100%)." in note and "Nobody removed." in note
 
         ts.set_inputs(ap_run=1)                                  # step 3: apply the model
         ts.set_inputs(rs_sd_limit=1.5)                           # some outputs follow on the next update
@@ -84,6 +86,8 @@ def test_inclusion_rule(tmp_path):
         ts.set_inputs(nm_lobe="R_MTL")                           # the test server shows some outputs one step later
         assert errors(ts) == {}
         assert "518 of 530 rows kept (inclusion rule on)" in str(ts.get_output("up_data_note").value)
+        note = str(ts.get_output("up_filter_note").value)
+        assert "Kept: 518 of 530 people (98%)." in note and "12 by the inclusion rule" in note
         ok(ts, "up_rule_table", "nm_normals")
         reasons = ts.get_output("up_rule_table").value["payload"]["data"]
         assert [row[1] for row in reasons] == [286, 232, 5, 7, 0]
@@ -96,6 +100,8 @@ def test_other_normalization_methods_and_a_filter():
         ts.set_inputs(nm_method="reference")                     # the test server shows some outputs one step later
         assert errors(ts) == {}
         assert "374 of 530 rows kept" in str(ts.get_output("up_data_note").value)
+        note = str(ts.get_output("up_filter_note").value)
+        assert "Kept: 374 of 530 people (71%)." in note and "156 by study" in note
         ok(ts, "up_studies", "nm_normals")
         ts.set_inputs(nm_method="own_gmm", ap_run=1)
         ts.set_inputs(nm_lobe="R_Frontal")
