@@ -1032,3 +1032,12 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
   session (now a message).
 - Open: the real model files; Z_max and subtype names of the real model; whether cleanup stays on by
   default; method C reference labels (CN + SCD?).
+
+## 2026-10-29 - Input template and format check
+- Decision: one official input format = a template CSV (subject_id, study, age, sex, diagnosis, amyloid + the model's
+  regions under FreeSurfer's own names). Made from the model files (src/input_format.py), so it always fits the loaded model.
+- Why: data repositories (e.g. NIH BRICS) validate uploads against a data dictionary + fixed template and report
+  errors and warnings separately; import tools advise staying tolerant of header spelling. So the template is the
+  rule, and the existing name matching stays as a safety net (other spellings = warning, not error).
+- App step 1: "Download input template (CSV)" button; new first tab "Input format" = verdict + checks + the
+  template's columns. README: new "Input format" section. Test: test_input_template_and_format_check.

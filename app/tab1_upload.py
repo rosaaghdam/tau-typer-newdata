@@ -10,6 +10,7 @@ from common import (CONFIG, PACKAGE, ROOT, TRAINING_LOBES, optional_input, as_pi
 from src.figures import plot_missing
 from src.figures_apply import plot_new_vs_training
 from src.normalization import amyloid_negative, amyloid_positive
+from src.input_format import check_format, input_format, template_table
 from src.qc import apply_inclusion_rule, demographics_table, guess_columns, qc_summary
 from src.roi_names import match_regions
 from src.trained_model import lobe_values, required_regions
@@ -25,6 +26,9 @@ HELP = {
     "lobes": "Each lobe is the plain mean of its regions. Filled = your people, outline "
              "= the model's training cohort, both as % of the group. If your distributions sit far from the "
              "training ones, method A (training normal) will be off - consider method B or C in step 2.",
+    "format": "Fill in the template (button in the sidebar): one row per scan, the region columns named "
+              "exactly as below, values = regional SUVRs. Optional columns can be left out. Other spellings "
+              "of a region (e.g. CTX_LH_ENTORHINAL) are still recognized, but shown as a warning.",
     "missing": "Every column with missing values (most missing on top) against every row (dark = missing).",
 }
 
@@ -34,6 +38,8 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
             ui.accordion_panel("Data",
                 ui.input_file("up_file", "Upload regional tau-PET data (CSV)", accept=[".csv"]),
                 ui.input_action_button("up_example", "Use the simulated example data", class_="btn-sm w-100"),
+                ui.download_button("up_template", "Download input template (CSV)",
+                                   class_="btn-sm btn-outline-secondary w-100 mt-2"),
                 ui.output_ui("up_summary")),
             ui.accordion_panel("Columns", ui.output_ui("up_roles")),
             ui.accordion_panel("Regions not found", ui.output_ui("up_fixes")),
@@ -41,6 +47,9 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
             open=["Data", "Columns", "Filter"], multiple=True),
         width=330, open="always"),
     ui.navset_tab(
+        ui.nav_panel("Input format", ui.output_ui("up_format_check"),
+                     figure_card("The template's columns", HELP["format"],
+                                 ui.output_data_frame("up_format_table"), table_tools("up_format_csv"))),
         ui.nav_panel("Data", ui.output_ui("up_data_note"), ui.output_data_frame("up_head")),
         ui.nav_panel("Region matching", ui.output_ui("up_match_note"),
                      figure_card("The model's regions in your file", HELP["matching"],
@@ -123,6 +132,34 @@ def server(input, output, session, shared):
     @reactive.calc
     def needed():
         return required_regions(PACKAGE, cleanup_regions)
+
+    def format_table():
+        """The input format: the information columns, then every region the model needs."""
+        return input_format(needed())
+
+    @render.download_button(filename="tau_typer_input_template.csv")
+    def up_template():
+        yield template_table(format_table()).to_csv(index=False)
+
+    @render.data_frame
+    def up_format_table():
+        return render.DataGrid(format_table(), height="420px")
+
+    add_table(report_items, "up_format_csv", "Input format", lambda: format_table().set_index("column"))
+
+    @render.ui
+    def up_format_check():
+        """After an upload: the file compared with the template - one verdict line, then each check."""
+        if raw() is None:
+            return ui.div("Download the input template (sidebar), fill in one row per scan, and upload it.",
+                          class_="alert alert-info")
+        checks = check_format(raw(), match(), columns()["id"])
+        errors, warnings = (checks["Level"] == "error").sum(), (checks["Level"] == "warning").sum()
+        verdict = ("alert-danger", f"{errors} problem(s) to fix before the model can run.") if errors else \
+            ("alert-warning", f"Usable, with {warnings} warning(s).") if warnings else \
+            ("alert-success", "Your file follows the template.")
+        return ui.TagList(ui.div(verdict[1], class_=f"alert {verdict[0]} fw-bold"),
+                          ui.HTML(checks.to_html(index=False, classes="table table-sm", border=0)))
 
     @reactive.calc
     def automatic_match():
@@ -291,7 +328,8 @@ def server(input, output, session, shared):
         table = raw()
         if table is None:
             return ui.div("Upload a CSV with one row per scan and one column per FreeSurfer region "
-                          "(e.g. ctx-lh-entorhinal, Left-Hippocampus), or use the simulated example data.",
+                          "(e.g. ctx-lh-entorhinal, Left-Hippocampus) - see 'Input format' and the template in "
+                          "the sidebar - or use the simulated example data.",
                           class_="alert alert-info")
         if not lobe_regions_found():
             return ui.div("Some regions the model needs were not found - see 'Region matching' and choose their "

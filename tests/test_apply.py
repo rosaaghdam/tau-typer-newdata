@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from conftest import ROOT
+from src.input_format import check_format, input_format, template_table
 from src.compare import agreement, crosstab, group_counts, labels_from_numbers
 from src.normalization import amyloid_negative, normalize
 from src.roi_names import match_regions, region_key
@@ -102,3 +103,18 @@ def test_inclusion_rule_reads_amyloid_as_text():
                                          ["CN", "SCD"], ["MCI", "AD"])
     assert kept.index.tolist() == [0, 2, 4, 5]
     assert reasons["N"].tolist() == [2, 2, 1, 1, 1]
+
+
+def test_input_template_and_format_check(package):
+    """The template lists the information columns + every region the model needs; the format check passes the
+    example data and reports the regions missing from the renamed test file."""
+    fmt = input_format(required_regions(package, CFG["cleanup"]["regions"]))
+    template = template_table(fmt)
+    assert template.shape == (1, 70) and template.columns[0] == "subject_id"
+    regions = fmt.loc[6:, "column"].tolist()
+    example = pd.read_csv(SIM / "df_sustain_true.csv")
+    assert set(check_format(example, match_regions(list(example.columns), regions), "filename")["Level"]) == {"OK"}
+    renamed = pd.read_csv(SIM / "test_newuser.csv")
+    checks = check_format(renamed, match_regions(list(renamed.columns), regions), "Subject")
+    assert checks["Level"].tolist() == ["error", "warning", "OK"]
+    assert "Left-Hippocampus" in checks.loc[0, "Details"]

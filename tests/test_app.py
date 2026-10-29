@@ -23,7 +23,8 @@ def test_whole_app_with_the_example_data():
         ts.set_inputs(nm_lobe="R_MTL")                           # the test server shows some outputs one step later
         assert errors(ts) == {}
         ok(ts, "up_head", "up_match_table", "up_qc", "up_missing", "up_lobes_plot", "up_demographics",
-           "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table", "nm_doc", "nm_compare")
+           "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table", "nm_doc", "nm_compare",
+           "up_format_check", "up_format_table")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
         assert ts.get_output("up_filter_note").value is None          # no filter used yet: no sentence
 

@@ -32,7 +32,7 @@ Then open the address it prints (usually http://127.0.0.1:8000).
 
 | Step | What happens |
 |---|---|
-| 1. Upload & QC | Upload regional tau-PET data (FreeSurfer regions, one row per scan). Column names are matched to the model's regions whatever their spelling (`ctx-lh-entorhinal`, `CTX_LH_ENTORHINAL`, `entorhinal_L`); regions not found can be chosen by hand. Choose ID / study / clinical columns, filter studies or diagnoses, QC, the 10 lobes vs the training data, explore, demographics. |
+| 1. Upload & QC | Upload regional tau-PET data in the template's format (see *Input format* below). Column names are matched to the model's regions whatever their spelling (`ctx-lh-entorhinal`, `CTX_LH_ENTORHINAL`, `entorhinal_L`); regions not found can be chosen by hand. Choose ID / study / clinical columns, filter studies or diagnoses, QC, the 10 lobes vs the training data, demographics. |
 | 2. Normalize | z-scores on the model's scale. A: the training cohort's GMM normal, B: a GMM on your own data, C: your amyloid-negative CN people, D: values already z-scores. Normal table, GMM fits, z-score figures. |
 | 3. Apply model | The saved model gives each person a subtype, stage and probabilities (stage 0 = S0). Optional false-positive cleanup (entorhinal / precuneus). The model's PVD, per-person table. |
 | 4. Results | Tau pattern per subtype, lobes per subtype, the brain (Vogel Fig. 1c/1e), stages and their certainty, subtype probabilities, subtypes per study, clinical summary. |
@@ -40,6 +40,48 @@ Then open the address it prints (usually http://127.0.0.1:8000).
 | 6. Report | Results per person (CSV), every figure and table (ZIP), a PDF report. |
 
 Try it with the simulated example data: step 1, "Use the simulated example data".
+
+## Input format
+
+Download the template in the app (step 1, sidebar: **Download input template (CSV)**), fill in one row per
+scan and upload it. The template always lists exactly the regions the loaded model needs.
+
+- **File:** CSV, one row per scan, one column per item below. Other columns are allowed and ignored.
+- **Region values:** regional tau-PET SUVRs, FreeSurfer Desikan-Killiany atlas, column names exactly as below
+  (FreeSurfer's own names). Other spellings (e.g. `CTX_LH_ENTORHINAL`, `entorhinal_L`) are still recognized,
+  but the app shows them as a warning; a region that cannot be found can be chosen by hand.
+- **Check on upload:** step 1, tab *Input format*, compares the file with the template:
+  errors (missing regions, text in region columns) stop the model; warnings (other names, no or duplicate IDs)
+  are only reported.
+
+**Information columns**
+
+| column | required | contents | example |
+|---|---|---|---|
+| `subject_id` | yes | a unique ID per scan | sub-001 |
+| `study` | no | study or cohort name | study_A |
+| `age` | no | age at the scan, in years | 71 |
+| `sex` | no | F or M | F |
+| `diagnosis` | no | clinical diagnosis, e.g. CN, SCD, MCI, AD | CN |
+| `amyloid` | no | amyloid status: positive / negative (or 1 / 0) | negative |
+
+**Region columns** (all required; each lobe is the mean of its regions)
+
+| lobe | regions |
+|---|---|
+| L_MTL | `ctx-lh-entorhinal`, `Left-Hippocampus`, `Left-Amygdala` |
+| R_MTL | `ctx-rh-entorhinal`, `Right-Hippocampus`, `Right-Amygdala` |
+| L_Temporal | `ctx-lh-parahippocampal`, `ctx-lh-inferiortemporal`, `ctx-lh-fusiform`, `ctx-lh-middletemporal`, `ctx-lh-superiortemporal`, `ctx-lh-transversetemporal` |
+| R_Temporal | `ctx-rh-parahippocampal`, `ctx-rh-inferiortemporal`, `ctx-rh-fusiform`, `ctx-rh-middletemporal`, `ctx-rh-superiortemporal`, `ctx-rh-transversetemporal` |
+| L_Parietal | `ctx-lh-isthmuscingulate`, `ctx-lh-inferiorparietal`, `ctx-lh-precuneus`, `ctx-lh-superiorparietal`, `ctx-lh-supramarginal`, `ctx-lh-posteriorcingulate`, `ctx-lh-postcentral` |
+| R_Parietal | `ctx-rh-isthmuscingulate`, `ctx-rh-inferiorparietal`, `ctx-rh-precuneus`, `ctx-rh-superiorparietal`, `ctx-rh-supramarginal`, `ctx-rh-posteriorcingulate`, `ctx-rh-postcentral` |
+| L_Occipital | `ctx-lh-lateraloccipital`, `ctx-lh-lingual`, `ctx-lh-pericalcarine`, `ctx-lh-cuneus` |
+| R_Occipital | `ctx-rh-lateraloccipital`, `ctx-rh-lingual`, `ctx-rh-pericalcarine`, `ctx-rh-cuneus` |
+| L_Frontal | `ctx-lh-caudalanteriorcingulate`, `ctx-lh-caudalmiddlefrontal`, `ctx-lh-lateralorbitofrontal`, `ctx-lh-medialorbitofrontal`, `ctx-lh-parsopercularis`, `ctx-lh-parsorbitalis`, `ctx-lh-parstriangularis`, `ctx-lh-precentral`, `ctx-lh-rostralanteriorcingulate`, `ctx-lh-rostralmiddlefrontal`, `ctx-lh-superiorfrontal`, `ctx-lh-insula` |
+| R_Frontal | `ctx-rh-caudalanteriorcingulate`, `ctx-rh-caudalmiddlefrontal`, `ctx-rh-lateralorbitofrontal`, `ctx-rh-medialorbitofrontal`, `ctx-rh-parsopercularis`, `ctx-rh-parsorbitalis`, `ctx-rh-parstriangularis`, `ctx-rh-precentral`, `ctx-rh-rostralanteriorcingulate`, `ctx-rh-rostralmiddlefrontal`, `ctx-rh-superiorfrontal`, `ctx-rh-insula` |
+
+The entorhinal and precuneus regions are also used by the optional false-positive check (step 3).
+These are the stand-in model's regions; the template in the app follows the model that is loaded.
 
 ## Folders
 
