@@ -30,6 +30,53 @@ METHOD_HELP = {
                "regional values and nothing else is changed.",
 }
 
+# Step 2's "Methods explained" tab: one card per method (what "normal" is, how it is computed, what it needs,
+# when to use it, what to watch out for)
+METHOD_DETAILS = {
+    "training": {
+        "normal": "The 'normal' (tau-negative) people of the model's TRAINING cohort.",
+        "how": ["For each lobe, a 1- and a 2-bell-curve Gaussian mixture are fitted to the training cohort's lobe "
+                "SUVRs; the better one is chosen by BIC.",
+                "If 2 curves fit better, the people in the LOWER curve are 'normal'; their mean and SD give the "
+                "normal mean and normal SD of that lobe.",
+                "Your people: z = (your lobe SUVR - normal mean) / normal SD."],
+        "needs": "Only the regional SUVRs of your people (nothing else).",
+        "use": "Your PET data were made like the training data: same tracer, reference region, partial-volume "
+               "correction and processing pipeline. This is the reference pipeline's method and reproduces its "
+               "results exactly.",
+        "watch": "If your scanner, tracer or processing differ, your SUVRs sit on another scale: everyone's z-scores "
+                 "shift, so too many (or too few) people look tau-positive. Check step 1's 'Lobes' tab - your "
+                 "distributions should overlap the training ones."},
+    "own_gmm": {
+        "normal": "The 'normal' (tau-negative) people among YOUR uploaded people.",
+        "how": ["The same recipe as A, but the Gaussian mixture is fitted to YOUR people's lobe SUVRs.",
+                "The people in the lower curve give the normal mean and SD of each lobe.",
+                "z = (lobe SUVR - your normal mean) / your normal SD."],
+        "needs": "Enough people (at least ~50), with BOTH tau-negative and tau-positive people.",
+        "use": "Your data come from another tracer, scanner or pipeline than the training data, and you have a "
+               "large, mixed cohort.",
+        "watch": "With few tau-positive (or few tau-negative) people the mixture cannot find two curves and the "
+                 "normal is wrong. All your studies are pooled, so scale differences BETWEEN your studies remain."},
+    "reference": {
+        "normal": "Your cognitively normal, amyloid-NEGATIVE people (diagnosis and amyloid columns of step 1).",
+        "how": ["Healthy reference = diagnosis CN / CU / HC / control (and SCD, set in config.yaml) AND amyloid "
+                "negative.",
+                "Normal mean and SD of each lobe = the plain mean and SD of these people's lobe SUVRs.",
+                "z = (lobe SUVR - healthy mean) / healthy SD."],
+        "needs": "Diagnosis and amyloid columns, and at least 10 amyloid-negative CN people.",
+        "use": "You have a clear healthy control group - the classic z-score approach of SuStaIn studies "
+               "(Young et al. 2018). Corrects for your own scanner and processing.",
+        "watch": "A small group gives an unstable SD. Some amyloid-negative CN people still have some tau (e.g. "
+                 "in the MTL with age), which widens the SD and lowers everyone's z-scores."},
+    "zscored": {
+        "normal": "Nothing is computed: your uploaded regional values ARE already z-scores.",
+        "how": ["Each lobe = the plain mean of its regions' z-scores; nothing else is changed."],
+        "needs": "Regional z-scores made on the model's scale.",
+        "use": "Only when you made the z-scores yourself, the same way the model expects.",
+        "watch": "The app cannot check them. The mean of regional z-scores is not the same as the z-score of the "
+                 "lobe mean (A-C), so results can differ from A even with the same reference."},
+}
+
 
 def amyloid_negative(values):
     """True where amyloid is negative: 0 / 0.0 / 'negative' / 'neg' / 'no' / 'false' / 'A-' (any case)."""

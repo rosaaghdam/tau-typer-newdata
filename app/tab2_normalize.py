@@ -1,5 +1,6 @@
 """Tab 2 - Normalize: turn the 10 lobe values into z-scores on the trained model's scale, with a choice of
 where "normal" comes from (src/normalization.py)."""
+import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
 
@@ -7,7 +8,7 @@ from common import (CONFIG, PACKAGE, add_figure, add_table, as_picture, figure_c
                     step_title, table_tools)
 from src.figures import plot_gmm_fit
 from src.figures_apply import plot_z_heatmap, plot_z_histograms
-from src.normalization import METHOD_HELP, METHODS, normalize
+from src.normalization import METHOD_DETAILS, METHOD_HELP, METHODS, available_methods, normalize
 from src.trained_model import check_z
 
 GMM_HELP = ("One lobe: histogram of the values the Gaussian mixture saw (training cohort for A, your people for B) "
@@ -36,6 +37,12 @@ panel = ui.nav_panel(step_title(2, "Normalize", "nm_status"), ui.layout_sidebar(
         width=330, open="always"),
     ui.output_ui("nm_notes"),
     ui.navset_tab(
+        ui.nav_panel("Methods explained", ui.output_ui("nm_doc"),
+                     ui.h5("Your data with each method", class_="mt-4"),
+                     ui.p("Every method that can run on your data, side by side: each lobe's normal mean (SD) and "
+                          "how many 'normal' people it is based on, then how many of your people reach the "
+                          "model's first cut-point.", class_="text-muted small"),
+                     ui.output_data_frame("nm_compare"), table_tools("nm_compare_csv")),
         ui.nav_panel("Normal values", ui.output_data_frame("nm_normals"), table_tools("nm_normal_table"),
                      figure_card("GMM fit of one lobe", GMM_HELP, ui.output_image("nm_gmm", height="auto"),
                                  figure_tools("nm_gmm"))),
@@ -75,6 +82,57 @@ def server(input, output, session, shared):
 
     shared["normalized"] = normalized
     shared["norm_method"] = input.nm_method
+
+    @render.ui
+    def nm_doc():
+        """The four methods explained, side by side; the chosen one is highlighted."""
+        first_cut = min(v for v in PACKAGE["Z_vals"].ravel() if v > 0)
+        cuts = ", ".join(f"{v:g}" for v in sorted(set(PACKAGE["Z_vals"].ravel()) - {0}))
+        intro = ui.div(
+            ui.p(ui.strong("What normalization does. "), "The model was trained on z-scores, not SUVRs. Each lobe is "
+                 "turned into a z-score: how many standard deviations a person is above 'normal' (no tau):"),
+            ui.p(ui.tags.code("z = (lobe SUVR - normal mean) / normal SD"), class_="text-center my-2"),
+            ui.p(f"The model's events happen at z = {cuts}; z = {first_cut:g} is the first sign of abnormal tau. "
+                 "The four methods differ only in WHERE the normal mean and SD come from - and that changes everyone's "
+                 "z-scores, so also their subtype and stage. Compare the methods' results in step 5."),
+            class_="alert alert-light")
+        cards = []
+        for method, label in METHODS.items():
+            d = METHOD_DETAILS[method]
+            chosen = method == input.nm_method()
+            cards.append(ui.card(
+                ui.card_header(label + ("  (chosen)" if chosen else "")),
+                ui.p(ui.strong("Normal = "), d["normal"]),
+                ui.p(ui.strong("How:"), class_="mb-1"), ui.tags.ol(*[ui.tags.li(step) for step in d["how"]]),
+                ui.p(ui.strong("Needs: "), d["needs"]),
+                ui.p(ui.strong("Use it when: "), d["use"]),
+                ui.p(ui.strong("Watch out: "), d["watch"], class_="mb-0"),
+                style="border: 2px solid var(--tt-accent);" if chosen else None))
+        return ui.TagList(intro, ui.layout_columns(*cards, col_widths=[6, 6]))
+
+    def compare_table():
+        """Every method that can run: per lobe 'normal mean (SD), n', then how many people reach the first cut-point."""
+        if shared["lobes"]() is None:
+            raise SafeException("Finish step 1 first.")
+        first_cut = min(v for v in PACKAGE["Z_vals"].ravel() if v > 0)
+        methods = available_methods(shared["columns"](), shared["data"](), cn_labels())
+        columns = {}
+        for method in methods:
+            result = normalize_with(method)
+            normals, z = result["normals"], result["z"]
+            rows = {lobe: f"{float(normals.loc[lobe, 'normal mean']):.3f} ({float(normals.loc[lobe, 'normal SD']):.3f}), "
+                          f"n = {int(normals.loc[lobe, 'normal people'])}" for lobe in PACKAGE["lobes"]}
+            above = (z[PACKAGE["lobes"]] >= first_cut).any(axis=1)
+            rows[f"people with z >= {first_cut:g} in at least one lobe"] = \
+                f"{int(above.sum())} of {len(z)} ({100 * above.mean():.0f}%)"
+            columns[METHODS[method].split(" (")[0]] = rows
+        return pd.DataFrame(columns).rename_axis("lobe")
+
+    @render.data_frame
+    def nm_compare():
+        return render.DataGrid(compare_table().reset_index()) if shared["lobes"]() is not None else None
+
+    add_table(report_items, "nm_compare_csv", "Normalization methods side by side", compare_table)
 
     @render.ui
     def nm_method_help():
