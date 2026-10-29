@@ -24,8 +24,9 @@ def test_whole_app_with_the_example_data():
         assert errors(ts) == {}
         ok(ts, "up_head", "up_match_table", "up_qc", "up_missing", "up_lobes_plot", "up_demographics",
            "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table", "nm_doc", "nm_compare",
-           "up_format_check", "up_format_table")
+           "up_format_check", "up_format_table", "up_qc_note")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
+        assert "All 64 regions match the input template" in str(ts.get_output("up_qc_note").value)
         qc = ts.get_output("up_qc").value["payload"]
         assert list(qc["columns"]) == ["Check", "Result", "Status"]
         assert qc["data"][0] == ["Region columns match the input template", "64 of 64 same name", "OK"]

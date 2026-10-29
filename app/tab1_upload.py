@@ -62,7 +62,7 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
         ui.nav_panel("Region matching", ui.output_ui("up_match_note"),
                      figure_card("The model's regions in your file", HELP["matching"],
                                  ui.output_data_frame("up_match_table"), table_tools("up_match"))),
-        ui.nav_panel("QC", ui.output_data_frame("up_qc"),
+        ui.nav_panel("QC", ui.output_ui("up_qc_note"), ui.output_data_frame("up_qc"),
                      ui.h6("Inclusion rule", class_="mt-3"), ui.output_ui("up_rule_note"),
                      ui.output_data_frame("up_rule_table"), table_tools("up_rule_csv"),
                      figure_card("Missing values", HELP["missing"], ui.output_image("up_missing", height="auto"),
@@ -359,9 +359,6 @@ def server(input, output, session, shared):
         if table is None:
             return None
         counts = table["status"].value_counts()
-        if counts.get("same name", 0) == len(table):
-            return ui.p(f"All {len(table)} regions match the input template of this pipeline (same names).",
-                        class_="fw-bold text-success")
         return ui.p(", ".join(f"{n} {status}" for status, n in counts.items()) + f" (of {len(table)} regions).",
                     class_="fw-bold")
 
@@ -405,6 +402,19 @@ def server(input, output, session, shared):
         return render.DataGrid(filtered()[1]) if raw() is not None and filtered()[1] is not None else None
 
     add_table(report_items, "up_rule_csv", "Inclusion rule", rule_table, in_report=True)
+
+    @render.ui
+    def up_qc_note():
+        """Top of the QC tab: do the region columns follow the input template?"""
+        table = match()
+        if table is None:
+            return None
+        same = int((table["status"] == "same name").sum())
+        if same == len(table):
+            return ui.p(f"All {len(table)} regions match the input template of this pipeline (same names).",
+                        class_="fw-bold text-success")
+        return ui.p(f"{same} of {len(table)} regions match the input template; the others are under another name "
+                    "or missing - see 'Input format'.", class_="fw-bold text-warning")
 
     @render.data_frame
     def up_qc():
