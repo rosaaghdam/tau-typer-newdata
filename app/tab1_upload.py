@@ -7,10 +7,10 @@ from shiny.types import SafeException
 
 from common import (CONFIG, PACKAGE, ROOT, TRAINING_LOBES, optional_input, as_picture, figure_card, figure_tools, add_figure,
                     add_table, step_status, step_title, table_tools)
-from src.figures import group_colors, plot_missing, plot_region_eda
+from src.figures import plot_missing
 from src.figures_apply import plot_new_vs_training
 from src.normalization import amyloid_negative, amyloid_positive
-from src.qc import demographics_table, guess_columns, qc_summary, three_groups
+from src.qc import demographics_table, guess_columns, qc_summary
 from src.roi_names import match_regions
 from src.trained_model import lobe_values, required_regions
 
@@ -26,9 +26,6 @@ HELP = {
              "= the model's training cohort, both as % of the group. If your distributions sit far from the "
              "training ones, method A (training normal) will be off - consider method B or C in step 2.",
     "missing": "Every column with missing values (most missing on top) against every row (dark = missing).",
-    "explore": "The 10 lobe values (before normalization) against another column: dots + trend line for a "
-               "number (e.g. age), boxes for a category (e.g. sex). 'Colour by' splits the people into groups "
-               "(a number into low / middle / high thirds).",
 }
 
 panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sidebar(
@@ -56,12 +53,6 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                                  ui.output_image("up_lobes_plot", height="auto"), figure_tools("up_lobes")),
                      ui.h6("Lobe values (first rows)", class_="mt-3"), ui.output_data_frame("up_lobes_head"),
                      table_tools("up_lobes_table")),
-        ui.nav_panel("Explore",
-                     figure_card("Lobe values against another column", HELP["explore"],
-                                 ui.layout_columns(ui.input_select("up_x", "Plot against", choices={"": "(nothing)"}),
-                                                   ui.input_select("up_split", "Colour by", choices={"": "(no split)"}),
-                                                   col_widths=[4, 4]),
-                                 ui.output_image("up_explore", height="auto"), figure_tools("up_explore"))),
         ui.nav_panel("Demographics", ui.output_data_frame("up_demographics"), table_tools("up_demo"),
                      ui.h6("People per study", class_="mt-3"), ui.output_data_frame("up_studies")))))
 
@@ -313,35 +304,6 @@ def server(input, output, session, shared):
         return None if lobes() is None else render.DataGrid(lobes().round(3).reset_index().head(50))
 
     add_table(report_items, "up_lobes_table", "Lobe values", lambda: lobes().round(4))
-
-    @reactive.effect
-    def _explore_choices():
-        table = data()
-        if table is None:
-            return
-        found = set(match().dropna(subset=["column"])["column"])
-        others = [c for c in table.columns if c not in found]
-        ui.update_select("up_x", choices={"": "(nothing)", **{c: c for c in others}})
-        ui.update_select("up_split", choices={"": "(no split)", **{c: c for c in others}})
-
-    def make_explore():
-        table = data().join(lobes())
-        x = input.up_x() or None
-        split = input.up_split() or None
-        groups, colors = None, None
-        if split:
-            raw_groups = table[split]
-            numeric = pd.to_numeric(raw_groups, errors="coerce")
-            groups = three_groups(numeric) if numeric.notna().mean() > 0.9 and numeric.nunique() > 6 \
-                else raw_groups.astype(str)
-            colors = group_colors(groups)
-        return plot_region_eda(table, PACKAGE["lobes"], x, groups, colors, value_label="lobe value (SUVR)")
-
-    @render.image
-    def up_explore():
-        return None if data() is None else as_picture(make_explore())
-
-    add_figure(report_items, "up_explore", "Lobe values against another column", make_explore)
 
     def demographics():
         table = data().copy()
