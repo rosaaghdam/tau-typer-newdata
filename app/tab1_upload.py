@@ -180,10 +180,14 @@ def server(input, output, session, shared):
                     parts.append(ui.input_selectize(f"up_keep_{role}", label, choices=values, selected=values,
                                                     multiple=True))
         rule = CONFIG["inclusion"]
-        parts += [ui.input_checkbox("up_rule", "Paper's inclusion rule (Vogel et al. 2021)", value=False),
-                  ui.p(f"Keep cognitively normal people older than {rule['min_age_cn']} and MCI/AD people who are "
-                       "amyloid-positive; remove everyone else. Needs the age, diagnosis and amyloid columns. "
-                       "Who was removed and why: QC tab.", class_="small text-muted")]
+        about = (f"Keep cognitively normal people older than {rule['min_age_cn']} and MCI/AD people who are "
+                 "amyloid-positive; remove everyone else. Needs the age, diagnosis and amyloid columns. "
+                 "Who was removed and why: QC tab.")
+        info = ui.popover(ui.tags.button("ⓘ", type="button", class_="btn btn-link btn-sm p-0 ms-1",
+                                         **{"aria-label": "About: Inclusion rule"}),
+                          about, title="Inclusion rule", placement="right")
+        parts += [ui.div(ui.input_checkbox("up_rule", "Inclusion rule", value=False, width="auto"), info,
+                         class_="d-flex align-items-start gap-1")]
         return ui.TagList(*parts)
 
     @reactive.calc
