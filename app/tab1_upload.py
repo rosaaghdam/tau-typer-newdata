@@ -10,7 +10,7 @@ from common import (CONFIG, PACKAGE, ROOT, TRAINING_LOBES, optional_input, as_pi
 from src.figures import plot_missing
 from src.figures_apply import plot_new_vs_training
 from src.normalization import amyloid_negative, amyloid_positive
-from src.qc import demographics_table, guess_columns, qc_summary
+from src.qc import apply_inclusion_rule, demographics_table, guess_columns, qc_summary
 from src.roi_names import match_regions
 from src.trained_model import lobe_values, required_regions
 
@@ -46,6 +46,8 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                      figure_card("The model's regions in your file", HELP["matching"],
                                  ui.output_data_frame("up_match_table"), table_tools("up_match"))),
         ui.nav_panel("QC", ui.output_data_frame("up_qc"),
+                     ui.h6("Inclusion rule", class_="mt-3"), ui.output_ui("up_rule_note"),
+                     ui.output_data_frame("up_rule_table"), table_tools("up_rule_csv"),
                      figure_card("Missing values", HELP["missing"], ui.output_image("up_missing", height="auto"),
                                  figure_tools("up_missing"))),
         ui.nav_panel("Lobes",
@@ -177,14 +179,20 @@ def server(input, output, session, shared):
                 if 1 < len(values) <= 60:
                     parts.append(ui.input_selectize(f"up_keep_{role}", label, choices=values, selected=values,
                                                     multiple=True))
+        rule = CONFIG["inclusion"]
+        parts += [ui.input_checkbox("up_rule", "Paper's inclusion rule (Vogel et al. 2021)", value=False),
+                  ui.p(f"Keep cognitively normal people older than {rule['min_age_cn']} and MCI/AD people who are "
+                       "amyloid-positive; remove everyone else. Needs the age, diagnosis and amyloid columns. "
+                       "Who was removed and why: QC tab.", class_="small text-muted")]
         return ui.TagList(*parts)
 
     @reactive.calc
-    def data():
-        """The rows kept (filters + complete regions), indexed by the ID column. None before an upload."""
+    def filtered():
+        """(the rows kept: filters + complete regions + the inclusion rule if ticked, indexed by the ID column;
+        the rule's table of reasons, or None). (None, None) before an upload."""
         table, matched = raw(), match()
         if table is None or matched is None or not lobe_regions_found():
-            return None
+            return None, None
         cols = columns()
         table = table.copy()
         ids = table[cols["id"]].astype(str) if cols["id"] else pd.Series([f"row {i + 1}" for i in range(len(table))])
@@ -200,7 +208,16 @@ def server(input, output, session, shared):
         found = matched.dropna(subset=["column"])
         values = table[found["column"].tolist()].apply(pd.to_numeric, errors="coerce")
         complete = values.notna().all(axis=1)
-        return table[keep & complete]
+        kept, reasons = table[keep & complete], None
+        if optional_input(input, "up_rule"):
+            rule = CONFIG["inclusion"]
+            kept, reasons = apply_inclusion_rule(kept, cols, rule["min_age_cn"], rule["cn_labels"],
+                                                 rule["impaired_labels"])
+        return kept, reasons
+
+    def data():
+        """The rows kept, indexed by the ID column. None before an upload."""
+        return filtered()[0]
 
     shared["data"] = data
 
@@ -244,8 +261,9 @@ def server(input, output, session, shared):
                           "columns in the sidebar ('Regions not found').", class_="alert alert-warning")
         kept = data()
         left_out = len(table) - len(kept)
-        return ui.p(f"{len(kept)} of {len(table)} rows kept" + (f" ({left_out} left out by the filter or "
-                    "missing regions)." if left_out else "."), class_="fw-bold")
+        rule = " (inclusion rule on)" if filtered()[1] is not None else ""
+        return ui.p(f"{len(kept)} of {len(table)} rows kept{rule}" + (f" ({left_out} left out by the filter, the rule "
+                    "or missing regions)." if left_out else "."), class_="fw-bold")
 
     @render.data_frame
     def up_head():
@@ -276,6 +294,26 @@ def server(input, output, session, shared):
             raise SafeException("No usable data yet.")
         found = match().dropna(subset=["column"])["column"].tolist()
         return qc_summary(table, columns(), found, CONFIG["app"]["suvr_min"], CONFIG["app"]["suvr_max"])
+
+    @render.ui
+    def up_rule_note():
+        if raw() is None:
+            return None
+        if filtered()[1] is None:
+            return ui.p("Not applied (tick it under Filter in the sidebar).", class_="text-muted small")
+        return ui.p(f"Applied: {len(data())} people kept.", class_="fw-bold small")
+
+    def rule_table():
+        reasons = filtered()[1]
+        if reasons is None:
+            raise SafeException("The inclusion rule is not applied.")
+        return reasons.set_index("Reason")
+
+    @render.data_frame
+    def up_rule_table():
+        return render.DataGrid(filtered()[1]) if raw() is not None and filtered()[1] is not None else None
+
+    add_table(report_items, "up_rule_csv", "Inclusion rule", rule_table, in_report=True)
 
     @render.data_frame
     def up_qc():

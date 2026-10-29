@@ -92,3 +92,13 @@ def test_compare_two_results():
 def test_required_regions_include_the_cleanup_ones(package):
     needed = required_regions(package, CFG["cleanup"]["regions"])
     assert set(CFG["cleanup"]["regions"]) <= set(needed) and len(needed) == len(set(needed)) == 64
+
+
+def test_inclusion_rule_reads_amyloid_as_text():
+    from src.qc import apply_inclusion_rule
+    data = pd.DataFrame({"dx": ["CN", "CN", "MCI", "AD", "AD", "SCD", "other"], "age": [70, 35, 70, 70, 70, 60, 70],
+                         "amy": ["Negative", "Negative", "Positive", "Negative", "1", "Negative", "Positive"]})
+    kept, reasons = apply_inclusion_rule(data, {"diagnosis": "dx", "age": "age", "amyloid": "amy"}, 40,
+                                         ["CN", "SCD"], ["MCI", "AD"])
+    assert kept.index.tolist() == [0, 2, 4, 5]
+    assert reasons["N"].tolist() == [2, 2, 1, 1, 1]

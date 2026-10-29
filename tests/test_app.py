@@ -66,6 +66,29 @@ def test_upload_with_other_column_names_and_a_region_chosen_by_hand(tmp_path):
         assert "chosen by you" in str(ts.get_output("up_match_note").value)
 
 
+def test_inclusion_rule(tmp_path):
+    """Ticking the paper's inclusion rule removes young CN and amyloid-negative MCI people, with the reasons."""
+    import pandas as pd
+    from conftest import ROOT
+    data = pd.read_csv(ROOT / "data" / "simulated" / "df_sustain_true.csv")
+    data.loc[data.index[data["diagnosis"] == "CN"][:5], "age"] = 35            # 5 CN people too young
+    data.loc[data.index[data["diagnosis"] == "MCI"][:7], "amyloid"] = "Negative"  # 7 MCI people amyloid-negative
+    path = tmp_path / "rule.csv"
+    data.to_csv(path, index=False)
+    upload = [{"name": path.name, "size": path.stat().st_size, "type": "text/csv", "datapath": str(path)}]
+    with test_server(APP, timeout_secs=300) as ts:
+        ts.set_inputs(up_file=upload, **START)
+        ts.set_inputs(up_rule=False)
+        assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
+        ts.set_inputs(up_rule=True)
+        ts.set_inputs(nm_lobe="R_MTL")                           # the test server shows some outputs one step later
+        assert errors(ts) == {}
+        assert "518 of 530 rows kept (inclusion rule on)" in str(ts.get_output("up_data_note").value)
+        ok(ts, "up_rule_table", "nm_normals")
+        reasons = ts.get_output("up_rule_table").value["payload"]["data"]
+        assert [row[1] for row in reasons] == [286, 232, 5, 7, 0]
+
+
 def test_other_normalization_methods_and_a_filter():
     with test_server(APP, timeout_secs=300) as ts:
         ts.set_inputs(up_example=1, **START)

@@ -154,7 +154,8 @@ def demographics_table(data, columns):
 
 def apply_inclusion_rule(data, columns, min_age_cn, cn_labels, impaired_labels):
     """The paper's inclusion rule (Vogel 2021): keep cognitively normal people older than
-    min_age_cn, and MCI/AD people who are amyloid-positive (coded 1). Remove everyone else.
+    min_age_cn, and MCI/AD people who are amyloid-positive (1, "Positive", "pos", "yes", "A+" - any case).
+    Remove everyone else.
 
     Labels are compared ignoring upper/lower case. Returns (kept data, table of reasons with counts).
     If the diagnosis, age or amyloid column is missing, nothing is removed and the table says why.
@@ -164,11 +165,12 @@ def apply_inclusion_rule(data, columns, min_age_cn, cn_labels, impaired_labels):
                                     "N": len(data)}])
     diagnosis = data[columns["diagnosis"]].astype(str).str.strip().str.upper()
     age = pd.to_numeric(data[columns["age"]], errors="coerce")
-    amyloid = pd.to_numeric(data[columns["amyloid"]], errors="coerce")
+    from src.normalization import amyloid_positive          # numbers or text (Positive / Negative)
+    positive = amyloid_positive(data[columns["amyloid"]])
     is_cn = diagnosis.isin([label.upper() for label in cn_labels])
     is_impaired = diagnosis.isin([label.upper() for label in impaired_labels])
     keep_cn = is_cn & (age > min_age_cn)
-    keep_impaired = is_impaired & (amyloid == 1)
+    keep_impaired = is_impaired & positive
     reasons = pd.DataFrame([
         (f"Kept: cognitively normal, older than {min_age_cn}", keep_cn.sum()),
         ("Kept: MCI/AD, amyloid-positive", keep_impaired.sum()),
