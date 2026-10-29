@@ -25,8 +25,7 @@ def test_whole_app_with_the_example_data():
         ok(ts, "up_head", "up_match_table", "up_qc", "up_missing", "up_lobes_plot", "up_demographics",
            "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
-        note = str(ts.get_output("up_filter_note").value)
-        assert "Kept: 530 of 530 people (100%)." in note and "Nobody removed." in note
+        assert ts.get_output("up_filter_note").value is None          # no filter used yet: no sentence
 
         ts.set_inputs(ap_run=1)                                  # step 3: apply the model
         ts.set_inputs(rs_sd_limit=1.5)                           # some outputs follow on the next update

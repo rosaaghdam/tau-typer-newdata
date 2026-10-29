@@ -226,13 +226,24 @@ def server(input, output, session, shared):
         """The rows kept, indexed by the ID column. None before an upload."""
         return filtered()[0]
 
+    def filter_used():
+        """True once the user has used a filter: a study or diagnosis taken out, or the inclusion rule ticked."""
+        if optional_input(input, "up_rule"):
+            return True
+        cols, table = columns(), raw()
+        for role in ("cohort", "diagnosis"):
+            chosen = optional_input(input, f"up_keep_{role}") if cols[role] else None
+            if chosen is not None and set(chosen) != set(table[cols[role]].dropna().astype(str)):
+                return True
+        return False
+
     @render.ui
     def up_filter_note():
         """Under the filters, updated with every change: how many people are kept, and what each filter removed."""
         table = raw()
         kept, _, steps = filtered()
-        if table is None or kept is None:
-            return None
+        if table is None or kept is None or not filter_used():
+            return None                                       # shown only once a filter is used
         total = len(table)
         removed = [f"{n} {label}" for label, n in steps if n > 0]
         return ui.div(ui.p(f"Kept: {len(kept)} of {total} people ({100 * len(kept) / max(total, 1):.0f}%).",
