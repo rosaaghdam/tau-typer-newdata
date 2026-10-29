@@ -1041,3 +1041,13 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
   rule, and the existing name matching stays as a safety net (other spellings = warning, not error).
 - App step 1: "Download input template (CSV)" button; new first tab "Input format" = verdict + checks + the
   template's columns. README: new "Input format" section. Test: test_input_template_and_format_check.
+
+## 2026-10-29 - Four normalization methods (baseline comparison)
+- Tried 7 methods from the original code (incl. W-scores with choroid plexus, age, sex - they matched ESM_utils.W_Transform
+  exactly), then kept 4 so a comparison changes only the baseline (where "normal" comes from):
+  1 reference pipeline (training cohort's GMM normal, benchmark), 2 GMM normal of the user's own data,
+  3 the user's amyloid-negative CN people, 4 already z-scores. Covariate regression stays out for now.
+- Agreement between methods is not accuracy: use the simulated truth for recovery; methods 2-3 are experimental
+  with the fixed trained model.
+- Removed the "Methods explained" tab and the per-method help texts (Rosa's request).
+- Next: save named runs and compare them (agreement, stage differences, probabilities, share at S0, overlap).

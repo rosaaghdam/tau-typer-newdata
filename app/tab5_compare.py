@@ -146,8 +146,8 @@ def server(input, output, session, shared):
         if shared["lobes"]() is None:
             return ui.div("Finish step 1 first.", class_="alert alert-info")
         if not runs():
-            return ui.div("Press 'Apply the model with every method' (left). Methods: A and B always; C if your data "
-                          "have diagnosis and amyloid columns with at least 10 amyloid-negative CN people.",
+            return ui.div("Press 'Apply the model with every method' (left). Methods 1 and 2 always run; 3 needs "
+                          "diagnosis and amyloid columns with at least 10 amyloid-negative CN people.",
                           class_="alert alert-info")
         return ui.p("Results: " + ", ".join(everything()), class_="fw-bold")
 

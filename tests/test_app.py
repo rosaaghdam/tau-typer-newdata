@@ -23,7 +23,7 @@ def test_whole_app_with_the_example_data():
         ts.set_inputs(nm_lobe="R_MTL")                           # the test server shows some outputs one step later
         assert errors(ts) == {}
         ok(ts, "up_head", "up_match_table", "up_qc", "up_missing", "up_lobes_plot", "up_demographics",
-           "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table", "nm_doc", "nm_compare",
+           "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table",
            "up_format_check", "up_format_table", "up_qc_note")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
         assert "All 64 regions match the input template" in str(ts.get_output("up_qc_note").value)
@@ -40,7 +40,7 @@ def test_whole_app_with_the_example_data():
            "rp_note")
 
         ts.set_inputs(cp_run=1)                                  # step 5: every method
-        ts.set_inputs(cp_a="A. Training cohort's normal", cp_b="truth")
+        ts.set_inputs(cp_a="1. Reference pipeline: training cohort's GMM normal", cp_b="truth")
         assert errors(ts) == {}
         ok(ts, "cp_counts", "cp_counts_table", "cp_agreement", "cp_pair", "cp_pair_stages", "cp_normals")
 

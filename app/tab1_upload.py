@@ -25,7 +25,7 @@ HELP = {
                 "reference region).",
     "lobes": "Each lobe is the plain mean of its regions. Filled = your people, outline "
              "= the model's training cohort, both as % of the group. If your distributions sit far from the "
-             "training ones, method A (training normal) will be off - consider method B or C in step 2.",
+             "training ones, method 1 (training normal) will be off - consider method 2 or 3 in step 2.",
     "upload": "Column names should match the input template (download it below). Region columns must "
               "have no missing values: a person with a missing or non-numeric region value is left out. "
               "Information columns (age, sex, diagnosis, amyloid) may have empty cells.",
