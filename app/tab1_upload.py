@@ -359,6 +359,9 @@ def server(input, output, session, shared):
         if table is None:
             return None
         counts = table["status"].value_counts()
+        if counts.get("same name", 0) == len(table):
+            return ui.p(f"All {len(table)} regions match the input template of this pipeline (same names).",
+                        class_="fw-bold text-success")
         return ui.p(", ".join(f"{n} {status}" for status, n in counts.items()) + f" (of {len(table)} regions).",
                     class_="fw-bold")
 
@@ -376,7 +379,12 @@ def server(input, output, session, shared):
         if table is None:
             raise SafeException("No usable data yet.")
         found = match().dropna(subset=["column"])["column"].tolist()
-        return qc_summary(table, columns(), found, CONFIG["app"]["suvr_min"], CONFIG["app"]["suvr_max"])
+        checks = qc_summary(table, columns(), found, CONFIG["app"]["suvr_min"], CONFIG["app"]["suvr_max"])
+        same, n = int((match()["status"] == "same name").sum()), len(match())
+        template = pd.DataFrame([{"Check": "Region columns match the input template", "Status":
+                                  "OK" if same == n else "Warning", "Result": f"{same} of {n} same name" +
+                                  ("" if same == n else f", {len(found) - same} under another name")}])
+        return pd.concat([template, checks], ignore_index=True)[checks.columns]
 
     @render.ui
     def up_rule_note():
