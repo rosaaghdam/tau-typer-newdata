@@ -166,3 +166,5 @@ app:
   suvr_max: 4.0
   heatmap_limits: [-3, 10]                   # step 2 heatmap colour scale (white -> black), the same for every method
   boxplot_limits: [-5, 20]                   # step 4 box plots: the same z-score range for every lobe
+  trajectory_stages: [5, 10, 15, 20, 25, 30] # step 3 "Trajectory on the brain": one row of 3D brains per stage
+  brain_cache: results/brain_cache           # those figures are drawn once (~10 s each) and kept here

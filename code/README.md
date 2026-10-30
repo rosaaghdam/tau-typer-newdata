@@ -30,5 +30,7 @@ main steps are in `steps/` (S0-S10). The app (`app/app.py`, step S10) uses the s
 | `06a_check_region_matching.py` | tab1-1 | Checks src/roi_names.match_regions: finds the model's 66 regions under other name styles; reports missing / doubled | done |
 | `07a_check_pipeline_vs_reference.py` | app-1 | The new app's pipeline (src/trained_model.py, normalization.py) vs the reference pipeline: lobes, z-scores, subtypes, stages and probabilities identical; cleanup 319/90/71/31/19 | done |
 | `08a_make_test_newuser.py` | app-2 | Makes data/simulated/test_newuser.csv: the example data with other column names (7 renamed, 2 missing, 1 doubled, a volume trap) to try Region matching by hand | done |
+| `09a_try_brain_trajectory.py` | app-3 | TRIAL: one subtype's trajectory on 3D brains with yabplot (aparc atlas) -> results/trial/ | done; kept as the record of the trial |
+| `09b_draw_brain_trajectories.py` | app-3 | Draws every subtype's 'Trajectory on the brain' (src/brain3d.py) into the cache folder (config.yaml app: brain_cache), so the app shows them at once; rerun after a new model | done |
 
 Steps 0c (tables) and the notes were writing only – see notes/.

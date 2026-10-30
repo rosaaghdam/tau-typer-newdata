@@ -179,3 +179,14 @@ def test_cleanup_groups():
     table = pd.DataFrame({"subtype_number": [0, 2, 1], "ml_stage": [0, 5, 3]}, index=["a", "b", "c"])
     cleaned = clean_up(table, pd.Series([False, True, False], index=table.index))
     assert list(cleanup_groups(cleaned)) == ["S0", "kept", "set to S0"]
+
+
+def test_brain_trajectory_levels(package):
+    """region_levels: every region of a lobe gets the lobe's level (1 = not reached, 2 = z 2, ...); stage 0 = none
+    reached, the last stage = every cut-point reached; FreeSurfer names become yabplot's aparc names."""
+    from src.brain3d import atlas_name, region_levels
+    from src.trained_model import event_stages
+    events = event_stages(package)[package["subtype_names"][0]]
+    assert atlas_name("ctx-lh-entorhinal") == "L_entorhinal"
+    assert set(region_levels(events, package["regions"], 0).values()) == {1}
+    assert set(region_levels(events, package["regions"], package["n_events"]).values()) == {1 + events.shape[1]}

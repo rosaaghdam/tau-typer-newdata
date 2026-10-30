@@ -4,9 +4,10 @@ import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
 
-from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
+from common import (CONFIG, PACKAGE, ROOT, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.compare import group_counts
+from src.brain3d import picture_figure, trajectory_png
 from src.figures import plot_model_choice, plot_pvd
 from src.figures_apply import plot_cleanup, plot_group_counts, plot_subtype_events
 from src.normalization import METHODS
@@ -28,6 +29,11 @@ LIKELIHOOD_HELP = ("The trained models' MCMC, as pySuStaIn saved it (samples_lik
                    "subtypes. Left: mean log-likelihood per number of subtypes (higher = fits the training cohort "
                    "better, but it always rises with more subtypes). Right: the log-likelihood of every MCMC sample; "
                    "a flat line = the MCMC was stable. From the training, not from your data.")
+BRAIN_HELP = ("One learned subtype on 3D brains (left and right, outside and inside views), one row per stage: each "
+              "lobe's cortex regions are coloured by the highest cut-point the lobe has reached by then in the model "
+              "(grey = not yet; light blue z 2, blue z 5, dark blue z 10; white = regions in no lobe of the model). "
+              "Hippocampus and amygdala (part of MTL) lie inside the brain and are not drawn - the entorhinal cortex "
+              "shows MTL. Drawn with yabplot the first time (~10 s), then kept.")
 CLEANUP_INFO = ("Some people get a subtype from small z-score bumps that are not real tau. This check looks at the "
                 "entorhinal cortex and precuneus (both sides), where tau appears early. For each of these regions a "
                 "Gaussian mixture with 2 bell curves (normal, abnormal) fitted on the TRAINING cohort gives each "
@@ -84,6 +90,9 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
                      figure_card("Events of each subtype", EVENTS_HELP,
                                  ui.input_slider("ap_stage", "Stage", min=0, max=PACKAGE["n_events"], value=6, step=1),
                                  ui.output_image("ap_events", height="auto"), figure_tools("ap_events")),
+                     figure_card("Trajectory on the brain", BRAIN_HELP,
+                                 ui.input_select("ap_brain_subtype", "Subtype", choices=SUBTYPE_NAMES, width="14rem"),
+                                 ui.output_image("ap_brain", height="auto"), figure_tools("ap_brain")),
                      figure_card("The trained model (PVD)", PVD_HELP, ui.output_image("ap_pvd", height="auto"),
                                  figure_tools("ap_pvd")),
                      # only when the model files have pySuStaIn's MCMC log-likelihoods (the stand-in has none)
@@ -222,6 +231,19 @@ def server(input, output, session, shared):
     def make_events():
         stage = optional_input(input, "ap_stage")
         return plot_subtype_events(EVENTS, PACKAGE["lobes"], PACKAGE["n_events"], 6 if stage is None else int(stage))
+
+    def brain_png():
+        subtype = optional_input(input, "ap_brain_subtype") or SUBTYPE_NAMES[0]
+        with ui.Progress(min=0, max=1) as progress:     # only the first time: the figure is kept afterwards
+            progress.set(0.5, message=f"Drawing {subtype} on the brain ...", detail="first time only")
+            return trajectory_png(PACKAGE, EVENTS, subtype, CONFIG["app"]["trajectory_stages"],
+                                  ROOT / CONFIG["app"]["brain_cache"])
+
+    @render.image
+    def ap_brain():
+        return as_picture(picture_figure(brain_png()))
+
+    add_figure(report_items, "ap_brain", "Trajectory on the brain", lambda: picture_figure(brain_png()))
 
     @render.image
     def ap_events():
