@@ -9,7 +9,8 @@ from conftest import APP, errors
 START = {"up_col_id": "filename", "up_col_cohort": "study", "up_col_age": "age", "up_col_sex": "sex",
          "up_col_diagnosis": "diagnosis", "up_col_amyloid": "amyloid",
          "nm_method": "training", "nm_lobe": "L_MTL", "ap_cleanup": True, "ap_poor": 0.5, "ap_samples": 200,
-         "rs_sd_limit": 1.0, "ap_run": 0, "cp_run": 0}
+         "rs_sd_limit": 1.0, "ap_run": 0, "cp_run": 0,
+         "up_region_pick": ["ctx-lh-entorhinal", "ctx-rh-entorhinal"]}
 
 
 def ok(ts, *names):
@@ -25,7 +26,8 @@ def test_whole_app_with_the_example_data():
         ok(ts, "up_head", "up_match_table", "up_qc", "up_missing", "up_lobes_plot", "up_demographics",
            "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table",
            "up_format_check", "up_format_table", "up_qc_note",
-           "up_region_heat", "up_region_compare", "up_region_table")
+           "up_region_heat", "up_region_compare", "up_region_table",
+           "up_region_hist")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
         assert "All 64 regions match the input template" in str(ts.get_output("up_qc_note").value)
         qc = ts.get_output("up_qc").value["payload"]

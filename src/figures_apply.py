@@ -30,7 +30,7 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
         ax.hist(old, bins=bins, weights=np.full(len(old), 100 / max(len(old), 1)), histtype="step", lw=1.6,
                 color=TRAINING_COLOR, label=f"training (n={len(old)})")
         ax.hist(new, bins=bins, weights=np.full(len(new), 100 / max(len(new), 1)), color=NEW_COLOR, alpha=0.55,
-                label=f"your data (n={len(new)})")
+                label=f"test data (n={len(new)})")
         ax.set_title(nice_region(lobe))
         ax.set_xlabel(xlabel, fontsize=7)
         if ax.get_subplotspec().is_first_col():
@@ -228,7 +228,7 @@ def plot_cleanup(p, threshold):
 
 def region_order(training):
     """Region (column) order of the regional heatmaps, as ESM_utils.Plot_Probabilites: the training cohort's
-    mean value per region, highest first. The same order for your data and the training data."""
+    mean value per region, highest first. The same order for the test data and the training data."""
     return training.mean(axis=0).sort_values(ascending=False).index.tolist()
 
 
@@ -240,42 +240,35 @@ def region_limits(training, low=1, high=99):
 
 
 def region_comparison(new, training):
-    """Per region: your people's and the training cohort's mean (SD), the difference and the standardized
-    difference (Cohen's d with the pooled SD). |d| >= 0.5 = a medium difference: check the scale of your data."""
+    """Per region: the test data's and the training cohort's mean (SD), the difference and the standardized
+    difference (Cohen's d = difference / pooled SD) with its size: |d| < 0.2 negligible, 0.2-0.5 small,
+    0.5-0.8 medium, >= 0.8 large (Cohen 1988)."""
     rows = []
     for region in region_order(training):
         a, b = new[region].dropna(), training[region].dropna()
         pooled = np.sqrt(((len(a) - 1) * a.var() + (len(b) - 1) * b.var()) / (len(a) + len(b) - 2))
         d = (a.mean() - b.mean()) / pooled
-        rows.append({"region": region, "your mean": a.mean(), "your SD": a.std(), "training mean": b.mean(),
-                     "training SD": b.std(), "difference": a.mean() - b.mean(), "Cohen's d": d,
-                     "size": "large" if abs(d) >= 0.8 else "medium" if abs(d) >= 0.5 else
-                             "small" if abs(d) >= 0.2 else "negligible"})
+        rows.append({"region": region, "test mean": a.mean(), "test SD": a.std(), "training mean": b.mean(),
+                     "training SD": b.std(), "difference (test - training)": a.mean() - b.mean(), "Cohen's d": d,
+                     "size of difference": "large" if abs(d) >= 0.8 else "medium" if abs(d) >= 0.5 else
+                                           "small" if abs(d) >= 0.2 else "negligible"})
     return pd.DataFrame(rows).set_index("region").round(3)
 
 
 def plot_region_comparison(table):
-    """Left: mean +- SD of every region, your people (teal) and the training cohort (orange). Right: the
-    standardized difference (Cohen's d), shaded |d| < 0.2 (negligible) and dashed at +-0.5 (medium)."""
+    """Every region: the test data (teal) and the training cohort (orange). Dot = the mean SUVR of all people,
+    line = from mean - 1 SD to mean + 1 SD (where about two thirds of the people lie)."""
     regions = table.index.tolist()
     y = np.arange(len(regions))
-    fig, (left, right) = plt.subplots(1, 2, figsize=(10, 0.17 * len(regions) + 1.6), sharey=True,
-                                      gridspec_kw={"width_ratios": [3, 2]})
-    for shift, prefix, color, label in ((-0.18, "your", NEW_COLOR, "your data"),
+    fig, ax = plt.subplots(figsize=(10, 0.2 * len(regions) + 1.4))
+    for shift, prefix, color, label in ((-0.18, "test", NEW_COLOR, "test data"),
                                         (0.18, "training", TRAINING_COLOR, "training cohort")):
-        left.errorbar(table[f"{prefix} mean"], y + shift, xerr=table[f"{prefix} SD"], fmt="o", ms=3, lw=0.8,
-                      color=color, label=label)
-    left.set_yticks(y, [nice_region(r) for r in regions], fontsize=7)
-    left.invert_yaxis()
-    left.set_xlabel("regional SUVR (mean ± SD)")
-    left.legend(loc="lower right", fontsize=7, frameon=False)
-    d = table["Cohen's d"].astype(float)
-    right.axvspan(-0.2, 0.2, color="#E4E7EB", lw=0)
-    for x in (-0.5, 0.5):
-        right.axvline(x, ls="--", lw=0.8, color="#9AA5B1")
-    right.axvline(0, lw=0.8, color="#52606D")
-    right.scatter(d, y, s=12, color=np.where(d.abs() >= 0.5, "#C62828", NEW_COLOR), zorder=3)
-    right.set_xlabel("standardized difference (Cohen's d)\nyour data - training")
+        ax.errorbar(table[f"{prefix} mean"], y + shift, xerr=table[f"{prefix} SD"], fmt="o", ms=4, lw=1,
+                    color=color, label=label)
+    ax.set_yticks(y, regions, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel("regional SUVR: dot = mean, line = mean ± 1 SD")
+    ax.legend(loc="lower right", fontsize=8, frameon=False)
     fig.tight_layout()
     return fig
 
@@ -285,7 +278,7 @@ def plot_region_heatmaps(new, training, limits):
     (rows, sorted by their mean, lowest at the top), on the same colour scale - as ESM_utils.Plot_Probabilites."""
     order = region_order(training)
     fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=False)
-    for ax, table, title in ((axes[0], new, f"your data (n = {len(new)})"),
+    for ax, table, title in ((axes[0], new, f"test data (n = {len(new)})"),
                              (axes[1], training, f"training cohort (n = {len(training)})")):
         rows = table[order].mean(axis=1).sort_values().index
         image = ax.imshow(table.loc[rows, order].to_numpy(float), aspect="auto", cmap=HEAT_CMAP, vmin=limits[0],

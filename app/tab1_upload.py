@@ -17,6 +17,7 @@ from src.qc import apply_inclusion_rule, demographics_table, guess_columns, qc_s
 from src.roi_names import match_regions
 from src.trained_model import lobe_values, required_regions
 
+MODEL_REGIONS = required_regions(PACKAGE, CONFIG["model"]["cleanup"]["regions"])   # the 64 regions, model order
 ROLES = {"id": "Scan / subject ID", "cohort": "Study / cohort", "age": "Age", "sex": "Sex",
          "diagnosis": "Diagnosis", "amyloid": "Amyloid status"}
 HELP = {
@@ -39,10 +40,15 @@ HELP = {
                    "(lowest at the top). Both heatmaps use the same colour scale (the training cohort's 1st-99th "
                    "percentile), so similar data look alike. Move the mouse over your heatmap for the exact SUVR; the "
                    "training cohort's individual values are not shown.",
-    "region_compare": "Each region: mean +- SD of your people and of the training cohort, and the standardized "
-                      "difference (Cohen's d = difference / pooled SD). |d| < 0.2 negligible, 0.2-0.5 small, "
-                      "0.5-0.8 medium (red dot), >= 0.8 large. Medium or large differences mean your SUVRs may be on "
-                      "another scale (tracer, reference region, processing) - consider normalization method 2 or 3.",
+    "region_compare": "Each region: dot = the mean SUVR of all people, line = mean minus to mean plus one standard "
+                      "deviation (SD), where about two thirds of the people lie. Teal = test data, orange = the training "
+                      "cohort. The table adds the difference and Cohen's d (difference / pooled SD): |d| < 0.2 "
+                      "negligible, 0.2-0.5 small, 0.5-0.8 medium, >= 0.8 large. Medium or large differences mean the "
+                      "test SUVRs may be on another scale (tracer, reference region, processing) - consider "
+                      "normalization method 2 or 3.",
+    "region_hist": "The distribution of each chosen region: filled = test data, outline = the training cohort, as % "
+                   "of each group, so groups of different size compare. Two bumps are normal for tau: tau-negative "
+                   "people (left) and tau-positive people (right).",
     "missing": "Every column with missing values (most missing on top) against every row (dark = missing).",
 }
 
@@ -73,9 +79,14 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
         ui.nav_panel("Region matching", ui.output_ui("up_match_note"),
                      figure_card("The model's regions in your file", HELP["matching"],
                                  ui.output_data_frame("up_match_table"), table_tools("up_match")),
-                     figure_card("Regional heatmaps: your data and the training cohort", HELP["region_heat"],
+                     figure_card("Regional heatmaps: test data and the training cohort", HELP["region_heat"],
                                  ui.output_ui("up_region_heat"), figure_tools("up_region_heat")),
-                     figure_card("Each region: your data vs the training cohort", HELP["region_compare"],
+                     figure_card("Distribution of chosen regions: test data vs the training cohort", HELP["region_hist"],
+                                 ui.input_selectize("up_region_pick", "Regions (choose 1 to all)", choices=MODEL_REGIONS,
+                                                    selected=CONFIG["model"]["cleanup"]["regions"], multiple=True,
+                                                    width="100%"),
+                                 ui.output_image("up_region_hist", height="auto"), figure_tools("up_region_hist")),
+                     figure_card("Each region: test data vs the training cohort", HELP["region_compare"],
                                  ui.output_image("up_region_compare", height="auto"), figure_tools("up_region_compare"),
                                  ui.output_data_frame("up_region_table"), table_tools("up_region_csv"))),
         ui.nav_panel("QC", ui.output_ui("up_qc_note"), ui.output_data_frame("up_qc"),
@@ -347,15 +358,30 @@ def server(input, output, session, shared):
         yours = values[order].loc[values[order].mean(axis=1).sort_values().index]
         theirs = training[order].loc[training[order].mean(axis=1).sort_values().index]
         return ui.TagList(
-            ui.h6(f"Your data (n = {len(yours)})"),
+            ui.h6(f"Test data (n = {len(yours)})"),
             ui.HTML(matrix_heatmap_html(yours, limits, "regional SUVR", "people, sorted by mean (lowest at the top)",
                                         "tt_region_new", height=420, label_size=9)),
             ui.h6(f"Training cohort (n = {len(theirs)})", class_="mt-4"),
             ui.HTML(matrix_heatmap_html(theirs, limits, "regional SUVR", "people, sorted by mean (lowest at the top)",
                                         "tt_region_training", hover=False, height=420, label_size=9)))
 
-    add_figure(report_items, "up_region_heat", "Regional heatmaps: your data and the training cohort",
+    add_figure(report_items, "up_region_heat", "Regional heatmaps: test data and the training cohort",
                lambda: plot_region_heatmaps(regional(), training_regional(), region_limits(training_regional())))
+
+    def make_region_hist():
+        chosen = [r for r in (optional_input(input, "up_region_pick") or []) if r in MODEL_REGIONS]
+        if not chosen:
+            raise SafeException("Choose at least one region.")
+        return plot_new_vs_training(regional(), training_regional(), chosen, xlabel="regional SUVR")
+
+    @render.image
+    def up_region_hist():
+        if regional() is None or not optional_input(input, "up_region_pick"):
+            return None
+        return as_picture(make_region_hist())
+
+    add_figure(report_items, "up_region_hist", "Distribution of chosen regions: test data vs the training cohort",
+               make_region_hist)
 
     def region_table():
         if regional() is None:
@@ -369,14 +395,14 @@ def server(input, output, session, shared):
     def up_region_compare():
         return None if regional() is None else as_picture(make_region_compare())
 
-    add_figure(report_items, "up_region_compare", "Each region: your data vs the training cohort", make_region_compare,
+    add_figure(report_items, "up_region_compare", "Each region: test data vs the training cohort", make_region_compare,
                in_report=True)
 
     @render.data_frame
     def up_region_table():
         return None if regional() is None else render.DataGrid(region_table().reset_index(), height="420px")
 
-    add_table(report_items, "up_region_csv", "Each region: your data vs the training cohort", region_table)
+    add_table(report_items, "up_region_csv", "Each region: test data vs the training cohort", region_table)
 
     @reactive.calc
     def lobes():
@@ -498,7 +524,7 @@ def server(input, output, session, shared):
     def up_lobes_plot():
         return None if lobes() is None else as_picture(make_lobes_plot())
 
-    add_figure(report_items, "up_lobes", "Lobes: your data vs the training data", make_lobes_plot, in_report=True)
+    add_figure(report_items, "up_lobes", "Lobes: test data vs the training data", make_lobes_plot, in_report=True)
 
     @render.data_frame
     def up_lobes_head():
