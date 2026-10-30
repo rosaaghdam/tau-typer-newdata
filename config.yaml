@@ -165,3 +165,4 @@ app:
   suvr_min: 0.5                              # QC: SUVR outside this range is flagged
   suvr_max: 4.0
   heatmap_limits: [-3, 10]                   # step 2 heatmap colour scale (white -> black), the same for every method
+  boxplot_limits: [-5, 20]                   # step 4 box plots: the same z-score range for every lobe

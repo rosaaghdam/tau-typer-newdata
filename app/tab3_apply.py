@@ -78,9 +78,10 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
                                  ui.output_image("ap_events", height="auto"), figure_tools("ap_events")),
                      figure_card("The trained model (PVD)", PVD_HELP, ui.output_image("ap_pvd", height="auto"),
                                  figure_tools("ap_pvd")),
+                     # only when the model files have pySuStaIn's MCMC log-likelihoods (the stand-in has none)
                      figure_card("MCMC log-likelihood of the trained models", LIKELIHOOD_HELP,
-                                 ui.output_ui("ap_likelihood_note"), ui.output_image("ap_likelihood", height="auto"),
-                                 figure_tools("ap_likelihood"))),
+                                 ui.output_image("ap_likelihood", height="auto"), figure_tools("ap_likelihood"))
+                     if PACKAGE["likelihoods"] else None),
         ui.nav_panel("Summary",
                      figure_card("People per group", COUNT_HELP, ui.output_image("ap_counts", height="auto"),
                                  figure_tools("ap_counts")),
@@ -159,8 +160,9 @@ def server(input, output, session, shared):
 
     @render.ui
     def ap_model_info():
-        stand_in = ui.div(ui.strong("Stand-in model. "), "These are invented test sequences, not the real trained "
-                          "model - results only test the software.", class_="alert alert-warning") \
+        stand_in = ui.div(ui.strong("Test model: "), "the app is using a simulated model, so these subtypes and "
+                          "stages are only for testing the app. The trained model will replace it.",
+                          class_="alert alert-warning") \
             if MODEL.get("is_stand_in") else None
         z_max = ", ".join(f"{v:g}" for v in PACKAGE["Z_max"])
         return ui.TagList(stand_in, ui.div(
@@ -250,13 +252,6 @@ def server(input, output, session, shared):
             raise SafeException("The saved model has no MCMC log-likelihoods (samples_likelihood).")
         table = pd.DataFrame({"mean log-likelihood": {k: v.mean() for k, v in PACKAGE["likelihoods"].items()}})
         return table.rename_axis("number of subtypes")
-
-    @render.ui
-    def ap_likelihood_note():
-        if PACKAGE["likelihoods"]:
-            return None
-        return ui.p("The saved model has no MCMC log-likelihoods (samples_likelihood) - the stand-in model was not "
-                    "trained. The real model's files from pySuStaIn will have them.", class_="text-muted")
 
     def make_likelihood():
         return plot_model_choice(likelihoods(), None, PACKAGE["likelihoods"])

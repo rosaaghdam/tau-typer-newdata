@@ -84,7 +84,7 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                      figure_card("The template's columns", HELP["format"],
                                  ui.output_data_frame("up_format_table"), table_tools("up_format_csv"))),
         ui.nav_panel("Data", ui.output_ui("up_data_note"), ui.output_data_frame("up_head")),
-        ui.nav_panel("Region matching", ui.output_ui("up_match_note"),
+        ui.nav_panel("Regions vs training", ui.output_ui("up_match_note"),
                      figure_card("The model's regions in your file", HELP["matching"],
                                  ui.output_data_frame("up_match_table"), table_tools("up_match")),
                      figure_card("Regional heatmaps: test data and the training cohort", HELP["region_heat"],
@@ -463,7 +463,7 @@ def server(input, output, session, shared):
                           "the sidebar - or use the simulated example data.",
                           class_="alert alert-info")
         if not lobe_regions_found():
-            return ui.div("Some regions the model needs were not found - see 'Region matching' and choose their "
+            return ui.div("Some regions the model needs were not found - see 'Regions vs training' and choose their "
                           "columns in the sidebar ('Regions not found').", class_="alert alert-warning")
         kept = data()
         left_out = len(table) - len(kept)

@@ -34,8 +34,9 @@ def server(input, output, session, shared):
             ui.h3("Tau-typer"),
             ui.p("Applies an already-trained tau-PET SuStaIn model (Vogel et al. 2021) to your data and returns "
                  "each person's subtype and stage. The app only calls the original pySuStaIn package."),
-            ui.div(ui.strong("Stand-in model: "), "the model in use is invented test data (data/simulated), not "
-                   "the lab's trained model.", class_="alert alert-warning") if stand_in else None,
+            ui.div(ui.strong("Test model: "), "the app is using a simulated model (data/simulated) until the "
+                   "trained model arrives, so its subtypes and stages are only for testing.",
+                   class_="alert alert-warning") if stand_in else None,
             ui.h5("The six steps"), ui.tags.ul(*[ui.tags.li(step) for step in steps]),
             ui.h5("The model"),
             ui.tags.ul(ui.tags.li(f"files: {PACKAGE['folder']}"),

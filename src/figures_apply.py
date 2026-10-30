@@ -215,8 +215,9 @@ def plot_z_histograms(z, lobes, cut_points=(2, 5, 10), training_z=None):
     return fig
 
 
-def plot_lobe_boxplots(z, table, lobes, names, colors=None):
-    """z-score of every lobe per group (S0 grey, then each subtype in its colour)."""
+def plot_lobe_boxplots(z, table, lobes, names, colors=None, limits=None):
+    """z-score of every lobe per group (S0 grey, then each subtype in its colour). limits: the same y range for
+    every lobe (e.g. (-5, 20)), so the lobes can be compared; None = each lobe its own range."""
     k = len(names)
     shades = [S0_COLOR] + list(subtype_colors(k, colors))
     groups = [0] + list(range(1, k + 1))
@@ -232,6 +233,8 @@ def plot_lobe_boxplots(z, table, lobes, names, colors=None):
             patch.set_facecolor(shade)
             patch.set_edgecolor("#52606D")
         ax.axhline(2, ls="--", lw=0.8, color="#C62828")
+        if limits is not None:
+            ax.set_ylim(*limits)
         ax.set_title(nice_region(lobe))
         ax.set_xticks(range(1, len(groups) + 1), labels, rotation=40, ha="right", fontsize=7)
         if ax.get_subplotspec().is_first_col():
@@ -272,7 +275,7 @@ def plot_group_counts(counts, colors=None):
                 ax.text(x, b + h / 2, f"{n}", ha="center", va="center", fontsize=8,
                         color="#1F2933" if name == "S0" else "white")
         bottom += heights
-    ax.set_xticks(range(counts.shape[1]), counts.columns, rotation=15, ha="right")
+    ax.set_xticks(range(counts.shape[1]), counts.columns)
     ax.set_ylabel("% of people (numbers = people)")
     ax.set_ylim(0, 100)
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1))

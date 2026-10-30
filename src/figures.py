@@ -97,7 +97,7 @@ def nice_region(name):
 
 def heat_cells(ax, values, cmap, vmax, numbers=True, aspect="auto"):
     """A heat map with a thin white gap around every cell, no frame and no tick marks; numbers=True writes
-    each value in its cell (white on dark cells). Returns the image (for a colour bar)."""
+    each value in its cell (white on dark cells, whatever the colour map). Returns the image (for a colour bar)."""
     image = ax.imshow(values, cmap=cmap, vmin=0, vmax=vmax, aspect=aspect)
     rows, cols = values.shape
     ax.set_xticks(np.arange(-0.5, cols), minor=True)
@@ -109,8 +109,10 @@ def heat_cells(ax, values, cmap, vmax, numbers=True, aspect="auto"):
     if numbers:
         for (row, col), value in np.ndenumerate(values):
             if not np.isnan(value):
+                red, green, blue, _ = image.cmap(image.norm(value))
+                dark = 0.299 * red + 0.587 * green + 0.114 * blue < 0.6      # white numbers on dark cells
                 ax.text(col, row, f"{value:.1f}", ha="center", va="center", fontsize=8,
-                        color="white" if value > 0.55 * vmax else "#1F2933")
+                        color="white" if dark else "#1F2933")
     return image
 
 

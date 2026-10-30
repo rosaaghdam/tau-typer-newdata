@@ -3,18 +3,19 @@ import pandas as pd
 from shiny import render, ui
 from shiny.types import SafeException
 
-from common import (PACKAGE, SUBTYPE_NAMES, add_figure, add_table, as_picture, figure_card, figure_tools,
+from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.brain import plot_brain_figure
 from src.figures import plot_cohort_subtypes, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
-from src.figures_apply import plot_lobe_boxplots, plot_stage_histograms
+from src.figures_apply import plot_lobe_boxplots, plot_stage_histograms, score_cmap
 from src.results import subtype_summary
 
 HELP = {
     "patterns": "Average z-score of each lobe (rows) in each subtype (columns), tau+ people only "
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
-    "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Dashed = z 2 "
-             "(the first cut-point).",
+    "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
+             "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range (-5 to "
+             "20, config.yaml) so the lobes can be compared.",
     "brain": "The subtypes on the brain (Vogel et al. 2021 Fig. 1c/1e): top, each subtype's average z-score; "
              "bottom, each subtype through the stages (people in groups of five stages). Each lobe is drawn on its "
              "Desikan-Killiany regions; grey = below z 2.",
@@ -91,7 +92,8 @@ def server(input, output, session, shared):
 
     def make_patterns():
         r = res()
-        return plot_subtype_patterns(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES, vmax=10)
+        return plot_subtype_patterns(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES, vmax=10,
+                                     cmap=score_cmap((0, 10)))    # the app's blue scale, as every heatmap
 
     @render.image
     def rs_patterns():
@@ -101,7 +103,8 @@ def server(input, output, session, shared):
 
     def make_boxes():
         r = res()
-        return plot_lobe_boxplots(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES)
+        return plot_lobe_boxplots(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES,
+                                  limits=tuple(CONFIG["app"]["boxplot_limits"]))
 
     @render.image
     def rs_boxes():
