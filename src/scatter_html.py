@@ -5,7 +5,7 @@ import json
 
 import numpy as np
 
-from src.figures_apply import CLEANUP_GROUPS, CLEANUP_YLABEL, cleanup_jitter, short_region
+from src.figures_apply import CLEANUP_GROUPS, CLEANUP_YLABEL, cleanup_jitter, short_region, with_highest
 
 
 def _hex(colour):
@@ -14,8 +14,11 @@ def _hex(colour):
     return to_hex(colour)
 
 
-def cleanup_scatter_html(p, threshold, groups, element_id="ap_cleanup_svg", width=1000, height=420):
-    """p: people x cleanup regions (probabilities 0-1); groups: each person's key in CLEANUP_GROUPS."""
+def cleanup_scatter_html(p, threshold, groups, values=None, element_id="ap_cleanup_svg", width=1000, height=420):
+    """p: people x cleanup regions (probabilities 0-1); groups: each person's key in CLEANUP_GROUPS; values: the
+    regions' SUVRs (same people and columns), shown under the mouse. A last column shows each person's highest
+    probability - the one compared with the threshold."""
+    p = with_highest(p)
     left, right, top, bottom = 95, 20, 20, 50                     # room for the axes (SVG units)
     band = (width - left - right) / p.shape[1]                    # one band per region
     y = lambda v: top + (1.03 - v) / 1.06 * (height - top - bottom)
@@ -29,9 +32,12 @@ def cleanup_scatter_html(p, threshold, groups, element_id="ap_cleanup_svg", widt
         rows = np.flatnonzero((groups == key).to_numpy())
         for i, roi in enumerate(p.columns):
             for r in rows:
-                tip = f"{p.index[r]} · {short_region(roi)}: {p.iat[r, i]:.3f} · {label}"
+                suvr = f", SUVR {values.iat[r, i]:.2f}" if values is not None and roi in values else ""
+                tip = f"{p.index[r]} · {short_region(roi)}: P = {p.iat[r, i]:.3f}{suvr} · {label}"
                 parts.append(f'<circle cx="{left + band * (i + 0.5 + jitter[r, i]):.1f}" cy="{y(p.iat[r, i]):.1f}" '
                              f'r="5" fill="{_hex(shade)}" fill-opacity="0.65" data-tip="{html.escape(tip)}"/>')
+    parts.append(f'<line x1="{left + band * (p.shape[1] - 1):.1f}" x2="{left + band * (p.shape[1] - 1):.1f}" '
+                 f'y1="{top}" y2="{height - bottom}" stroke="#9AA5B1"/>')          # the regions | the highest of them
     parts.append(f'<line x1="{left}" x2="{width - right}" y1="{y(threshold):.1f}" y2="{y(threshold):.1f}" '
                  f'stroke="#C62828" stroke-width="1.5" stroke-dasharray="6 4"/>')
     parts.append(f'<text x="{left - 70}" y="{height / 2}" transform="rotate(-90 {left - 70} {height / 2})" '
@@ -46,7 +52,7 @@ def cleanup_scatter_html(p, threshold, groups, element_id="ap_cleanup_svg", widt
     return f"""
 <div id="{element_id}" style="position:relative; font-size:13px; color:#52606D;">
   <div style="margin-bottom:6px;">{legend}</div>
-  <svg viewBox="0 0 {width} {height}" style="width:100%; height:auto; display:block; font-size:22px; fill:#52606D;">
+  <svg viewBox="0 0 {width} {height}" style="width:100%; max-width:1000px; height:auto; display:block; font-size:17px; fill:#52606D;">
     {"".join(parts)}
   </svg>
   <div class="tt-dot-tip" style="position:absolute; display:none; pointer-events:none; background:#1F2933; color:#fff;
@@ -60,8 +66,10 @@ def cleanup_scatter_html(p, threshold, groups, element_id="ap_cleanup_svg", widt
     if (!dot) {{ tip.style.display = "none"; return; }}
     const outer = box.getBoundingClientRect();
     tip.textContent = dot.dataset.tip;
-    tip.style.left = (e.clientX - outer.left + 12) + "px"; tip.style.top = (e.clientY - outer.top + 12) + "px";
     tip.style.display = "block";
+    let x = e.clientX - outer.left + 12;                       // keep the label inside the figure
+    if (x + tip.offsetWidth > outer.width) x = e.clientX - outer.left - tip.offsetWidth - 12;
+    tip.style.left = Math.max(0, x) + "px"; tip.style.top = (e.clientY - outer.top + 12) + "px";
   }});
   box.querySelector("svg").addEventListener("mouseleave", function() {{ tip.style.display = "none"; }});
 }})();

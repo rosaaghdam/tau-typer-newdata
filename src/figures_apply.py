@@ -338,6 +338,12 @@ def plot_normal_values(tables, lobes):
 CLEANUP_GROUPS = {"S0": ("S0 by the model (stage 0)", S0_COLOR), "kept": ("subtype, kept", NEW_COLOR),
                   "set to S0": ("subtype, set to S0 by the check", TRAINING_COLOR)}
 CLEANUP_YLABEL = "P(abnormal bell curve)"
+HIGHEST = "highest of the 4"                  # the last column: each person's highest value - the one that decides
+
+
+def with_highest(p):
+    """The cleanup probabilities plus a last column with each person's highest one (tau+ = above the threshold)."""
+    return p.assign(**{HIGHEST: p.max(axis=1)})
 
 
 def short_region(name):
@@ -356,6 +362,7 @@ def cleanup_jitter(n_people, n_regions, seed=0):
 def plot_cleanup(p, threshold, groups=None):
     """False-positive check: each person's probability of the abnormal bell curve in each cleanup region (dots),
     coloured by group (S0 / kept / set to S0, see CLEANUP_GROUPS); dashed = the threshold."""
+    p = with_highest(p)
     fig, ax = plt.subplots(figsize=(1.8 * p.shape[1] + 3.2, 3.8))
     groups = pd.Series("kept", index=p.index) if groups is None else groups.reindex(p.index)
     jitter = cleanup_jitter(len(p), p.shape[1])
@@ -365,6 +372,7 @@ def plot_cleanup(p, threshold, groups=None):
             ax.scatter(i + jitter[rows, i], p[roi].to_numpy()[rows], s=10, alpha=0.6, color=shade,
                        label=f"{label} (n = {len(rows)})" if i == 0 else None)
     ax.axhline(threshold, ls="--", color="#C62828", lw=1.2, label=f"threshold {threshold:g}")
+    ax.axvline(p.shape[1] - 1.5, color="#9AA5B1", lw=0.8)       # the regions | the highest of them
     ax.set_xticks(range(p.shape[1]), [short_region(c) for c in p.columns])
     ax.set_ylabel(CLEANUP_YLABEL)
     ax.set_ylim(-0.03, 1.03)

@@ -48,11 +48,13 @@ POOR_INFO = ("pySuStaIn gives every person a probability for each subtype (toget
              "marked 'poor fit'. Example: 0.1, 0.2, 0.4, 0.3 - the highest is 0.4, below 0.5, so poor fit. The "
              "person keeps the subtype (it is only flagged); S0 people are never flagged. Paper: 0.5.")
 COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
-CLEAN_HELP = ("False-positive check (entorhinal / precuneus): every dot is one person in one region. y = the probability "
-              "that the region's value belongs to the abnormal bell curve of a Gaussian mixture fitted on the "
-              "TRAINING cohort. Grey = S0 by the model (stage 0); teal = has a subtype and at least one region above "
-              "the threshold (kept); orange = has a subtype but no region above the threshold, so set to S0. Move "
-              "the mouse over a dot to see the person.")
+CLEAN_HELP = ("False-positive check (entorhinal / precuneus). Each person has one probability per region, so 4 dots "
+              "(one in each of the first 4 columns): the probability that the region's SUVR belongs to the abnormal "
+              "bell curve of a Gaussian mixture fitted on the TRAINING cohort. Near 0 = the region looks normal; near "
+              "1 = abnormal. The last column is each person's highest of the 4 - the value that decides: above the "
+              "threshold = tau+. Grey = S0 by the model (stage 0); teal = has a subtype and kept; orange = has a "
+              "subtype but all 4 regions below the threshold, so set to S0. Move the mouse over a dot for the person, "
+              "the probability and the region's SUVR.")
 
 
 def info_button(title, text):
@@ -302,7 +304,9 @@ def server(input, output, session, shared):
         res = result()
         if res is None or res["p_cleanup"] is None:
             return None
-        return ui.HTML(cleanup_scatter_html(res["p_cleanup"], res["fp_threshold"], cleanup_groups(res["table"])))
+        values = shared["regional"]().loc[res["p_cleanup"].index, list(res["p_cleanup"].columns)]
+        return ui.HTML(cleanup_scatter_html(res["p_cleanup"], res["fp_threshold"], cleanup_groups(res["table"]),
+                                            values))
 
     add_figure(report_items, "ap_cleanup_fig", "False-positive check (entorhinal / precuneus)", make_cleanup)
 
