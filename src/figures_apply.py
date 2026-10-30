@@ -1,10 +1,11 @@
 """Figures of the new app (applying a trained model). Same look as src/figures.py (tau_typer.mplstyle)."""
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm, to_hex
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import pandas as pd
 
 from src.figures import left_right_layout, nice_region, style_colorbar, subtype_colors
+from src.roi_names import region_key
 
 S0_COLOR = "#BFC5CE"                      # S0 (no abnormal tau) - grey in every figure
 NEW_COLOR, TRAINING_COLOR = "#0F5C6E", "#E8A33D"
@@ -16,6 +17,58 @@ def _panels(lobes, width=2.9, height=2.3):
     n_rows = max(1, int(np.ceil(len(cells) / n_cols)))
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(width * n_cols, height * n_rows), squeeze=False)
     return fig, axes, cells + [None] * (axes.size - len(cells))
+
+
+def _test_vs_training_hist(ax, new, old, title, xlabel):
+    """One panel: the test data (filled) and the training cohort (outline), as % of each group."""
+    bins = np.histogram_bin_edges(pd.concat([new, old]), bins=40)
+    ax.hist(old, bins=bins, weights=np.full(len(old), 100 / max(len(old), 1)), histtype="step", lw=1.4,
+            color=TRAINING_COLOR, label=f"training (n={len(old)})")
+    ax.hist(new, bins=bins, weights=np.full(len(new), 100 / max(len(new), 1)), color=NEW_COLOR, alpha=0.55,
+            label=f"test data (n={len(new)})")
+    ax.set_title(title, fontsize=8)
+    ax.set_xlabel(xlabel, fontsize=7)
+
+
+def region_pairs(regions):
+    """The regions as (right, left) pairs in the given order, e.g. (ctx-rh-entorhinal, ctx-lh-entorhinal);
+    a region without a partner is paired with None."""
+    by_key = {region_key(r): r for r in regions}
+    pairs, seen = [], set()
+    for region in regions:
+        side, name = region_key(region)
+        if region in seen:
+            continue
+        partner = by_key.get(("R" if side == "L" else "L", name)) if side else None
+        right, left = (partner, region) if side == "L" else (region, partner)
+        pairs.append((right, left))
+        seen.update({right, left})
+    return pairs
+
+
+def plot_region_pairs(new, training, chosen, all_regions, per_row=6, xlabel="regional SUVR"):
+    """Histograms of the chosen regions, test data vs the training cohort: per_row region pairs per row, the RIGHT
+    region above its LEFT partner (the same column); a cell stays empty when that side is not chosen."""
+    pairs = [pair for pair in region_pairs(all_regions) if set(pair) & set(chosen)]
+    n_cols = min(per_row, len(pairs))
+    n_rows = 2 * int(np.ceil(len(pairs) / per_row))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(2.5 * n_cols, 1.9 * n_rows), squeeze=False)
+    for ax in axes.flat:
+        ax.set_visible(False)
+    for i, pair in enumerate(pairs):
+        for row_shift, region in enumerate(pair):             # 0 = right (above), 1 = left (below)
+            if region is None or region not in chosen:
+                continue
+            ax = axes[2 * (i // per_row) + row_shift, i % per_row]
+            ax.set_visible(True)
+            _test_vs_training_hist(ax, new[region].dropna(), training[region].dropna(), region, xlabel)
+            if i % per_row == 0:
+                ax.set_ylabel("% of people", fontsize=7)
+            ax.tick_params(labelsize=6)
+    first = next(ax for ax in axes.flat if ax.get_visible())
+    first.legend(fontsize=6, loc="upper right")
+    fig.tight_layout()
+    return fig
 
 
 def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (mean SUVR of its regions)"):
@@ -43,18 +96,15 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
 
 HEAT_CMAP = "OrRd"                         # near-white (low) -> orange (moderate) -> dark red (high)
 HEAT_LABEL = "Standardized regional score"
-# scores that can be negative: blue below 0, white at 0, then the same near-white -> orange -> dark red above 0
-# (TwoSlopeNorm puts 0 in the middle of the map: the lower half is blue -> white, the upper half white -> dark red)
-SCORE_CMAP = LinearSegmentedColormap.from_list(
-    "score", [(0.0, "#2166AC"), (0.25, "#92C5DE"), (0.5, "#FFFFFF")] +
-             [(0.5 + 0.5 * x, to_hex(plt.get_cmap(HEAT_CMAP)(0.1 + 0.9 * x))) for x in np.linspace(0.1, 1, 6)])
+# standardized scores (can be negative): one scale from white (lowest) -> blue -> dark blue -> black (highest)
+SCORE_CMAP = LinearSegmentedColormap.from_list("score", ["#FFFFFF", "#9ECAE1", "#2171B5", "#08306B", "#000000"])
 
 
 def heatmap_scale(limits):
-    """(colour map, norm) of a heatmap with fixed limits: a scale that crosses 0 puts white at 0 (blue below,
-    orange-red above); a scale that stays above 0 (e.g. SUVR) is near-white -> dark red."""
+    """(colour map, norm) of a heatmap with fixed limits: standardized scores (a scale that reaches below 0) go
+    white -> blue -> dark blue -> black; values that stay above 0 (e.g. SUVR) go near-white -> dark red."""
     if limits[0] < 0 < limits[1]:
-        return SCORE_CMAP, TwoSlopeNorm(vmin=limits[0], vcenter=0, vmax=limits[1])
+        return SCORE_CMAP, plt.Normalize(*limits)
     return plt.get_cmap(HEAT_CMAP), plt.Normalize(*limits)
 
 
@@ -74,7 +124,7 @@ def heatmap_colors(values, limits):
 
 def plot_z_heatmap(z, lobes, limits=(-3, 10), order=None):
     """Every person's scores (rows, sorted by mean score, lowest at the top) per lobe (columns), on a FIXED
-    colour scale (limits): blue below 0, white at 0, orange to dark red above; beyond the limits = the end colours."""
+    colour scale (limits): white (lowest) -> blue -> dark blue -> black (highest); beyond the limits = the end colours."""
     rows = heatmap_order(z, lobes) if order is None else order
     cmap, norm = heatmap_scale(limits)
     fig, ax = plt.subplots(figsize=(0.55 * len(lobes) + 2.5, 6.5))

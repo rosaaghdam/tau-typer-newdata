@@ -8,7 +8,7 @@ from shiny.types import SafeException
 from common import (CONFIG, PACKAGE, ROOT, TRAINING_LOBES, optional_input, as_picture, figure_card, figure_tools, add_figure,
                     add_table, step_status, step_title, table_tools)
 from src.figures import plot_missing
-from src.figures_apply import (plot_new_vs_training, plot_region_comparison, plot_region_heatmaps, region_comparison,
+from src.figures_apply import (plot_new_vs_training, plot_region_comparison, plot_region_pairs, plot_region_heatmaps, region_comparison,
                                region_limits, region_order)
 from src.heatmap_html import matrix_heatmap_html
 from src.normalization import amyloid_negative, amyloid_positive
@@ -47,8 +47,9 @@ HELP = {
                       "test SUVRs may be on another scale (tracer, reference region, processing) - consider "
                       "normalization method 2 or 3.",
     "region_hist": "The distribution of each chosen region: filled = test data, outline = the training cohort, as % "
-                   "of each group, so groups of different size compare. Two bumps are normal for tau: tau-negative "
-                   "people (left) and tau-positive people (right).",
+                   "of each group, so groups of different size compare. Six region pairs per row: the right "
+                   "hemisphere above, its left partner right below (empty if not chosen). Two bumps are normal for "
+                   "tau: tau-negative people (left bump) and tau-positive people (right bump).",
     "missing": "Every column with missing values (most missing on top) against every row (dark = missing).",
 }
 
@@ -85,6 +86,9 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                                  ui.input_selectize("up_region_pick", "Regions (choose 1 to all)", choices=MODEL_REGIONS,
                                                     selected=CONFIG["model"]["cleanup"]["regions"], multiple=True,
                                                     width="100%"),
+                                 ui.div(ui.input_action_button("up_region_all", "All regions", class_="btn-sm"),
+                                        ui.input_action_button("up_region_none", "Clear", class_="btn-sm"),
+                                        class_="d-flex gap-2 mb-2"),
                                  ui.output_image("up_region_hist", height="auto"), figure_tools("up_region_hist")),
                      figure_card("Each region: test data vs the training cohort", HELP["region_compare"],
                                  ui.output_image("up_region_compare", height="auto"), figure_tools("up_region_compare"),
@@ -372,7 +376,17 @@ def server(input, output, session, shared):
         chosen = [r for r in (optional_input(input, "up_region_pick") or []) if r in MODEL_REGIONS]
         if not chosen:
             raise SafeException("Choose at least one region.")
-        return plot_new_vs_training(regional(), training_regional(), chosen, xlabel="regional SUVR")
+        return plot_region_pairs(regional(), training_regional(), chosen, MODEL_REGIONS)
+
+    @reactive.effect
+    @reactive.event(input.up_region_all)
+    def _all_regions():
+        ui.update_selectize("up_region_pick", selected=MODEL_REGIONS)
+
+    @reactive.effect
+    @reactive.event(input.up_region_none)
+    def _no_regions():
+        ui.update_selectize("up_region_pick", selected=[])
 
     @render.image
     def up_region_hist():

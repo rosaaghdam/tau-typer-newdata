@@ -18,9 +18,9 @@ GMM_HELP = ("One lobe: histogram of the values the Gaussian mixture saw (the tra
             "(normal mean + z x normal SD).")
 HEAT_LIMITS = tuple(CONFIG["app"]["heatmap_limits"])     # the same colour scale for every method (fair comparison)
 HEAT_HELP = ("Each row is one person, each column one lobe; rows are sorted by the person's mean score over the "
-             "lobes (lowest at the top). Colour = the standardized score on the same fixed scale for every method: "
-             "blue = below 0 (below normal), white = 0, near-white to orange to dark red = above 0 (more tau). "
-             "Scores beyond the scale's ends get the end colours. Move the mouse over a cell for the exact score.")
+             "lobes (lowest at the top). Colour = the standardized score on the same fixed scale for every method "
+             "(-3 to 10): white = lowest (below normal), light blue around 0, blue to dark blue = above normal, black = "
+             "highest. Scores beyond the scale's ends get the end colours. Move the mouse over a cell for the exact score.")
 HIST_HELP = "The z-scores of each lobe; dashed red lines = the model's cut-points (z 2, 5, 10)."
 
 

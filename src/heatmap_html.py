@@ -75,6 +75,6 @@ def heatmap_html(z, lobes, limits, element_id="tt_heat"):
     rows = heatmap_order(z, lobes)
     table = z.loc[rows, lobes].copy()
     table.columns = [nice_region(l) for l in lobes]
-    return matrix_heatmap_html(table, limits, f"{HEAT_LABEL} (blue below 0, white at 0; beyond {limits[0]:g} and "
-                               f"{limits[1]:g} = end colours)", f"people (n = {len(rows)}), sorted by mean score "
+    return matrix_heatmap_html(table, limits, f"{HEAT_LABEL} (white = lowest, black = highest; beyond "
+                               f"{limits[0]:g} and {limits[1]:g} = end colours)", f"people (n = {len(rows)}), sorted by mean score "
                                "(lowest at the top)", element_id)
