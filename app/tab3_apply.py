@@ -5,25 +5,32 @@ import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
 
-from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, add_figure, add_table, as_picture, figure_card, figure_tools,
+from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.compare import group_counts
-from src.figures import nice_region, plot_pvd, subtype_colors
-from src.figures_apply import plot_cleanup, plot_group_counts, plot_lobe_onsets
+from src.figures import nice_region, plot_model_choice, plot_person, plot_pvd, subtype_colors
+from src.figures_apply import plot_cleanup, plot_group_counts, plot_subtype_events
 from src.normalization import METHODS
-from src.trained_model import apply_model, clean_up, label_table, lobe_onsets, tau_positive
+from src.trained_model import apply_model, clean_up, event_stages, label_table, lobe_onsets, tau_positive
 
 MODEL = CONFIG["model"]
 N_SAVED = PACKAGE["n_mcmc_samples"]                  # pySuStaIn would only repeat samples beyond this
-ONSET_MEAN, ONSET_SD, SHARES = lobe_onsets(PACKAGE)
+ONSET_MEAN, _, SHARES = lobe_onsets(PACKAGE)
+EVENTS = event_stages(PACKAGE)
 PVD_HELP = ("The trained model itself, drawn by pySuStaIn (positional variance diagram): rows = lobes, columns = "
             "stages; red = the lobe reaches z 2, magenta = z 5, blue = z 10. Dark = the event is (almost) always at "
             "that stage in the model's MCMC samples. f = the subtype's share in the model; after 'Apply the model' "
             "also n and tau+ = your people assigned to the subtype.")
-ONSET_HELP = ("The learned subtypes side by side: for every lobe, the stage (1-%d) at which it first becomes abnormal "
-              "(reaches z 2) in each subtype. Dot = mean over the model's saved MCMC samples, line = +- 1 SD (how "
-              "sure the model is). Lobes on the left are where the subtype starts; on the right, where it ends."
-              % PACKAGE["n_events"])
+EVENTS_HELP = ("Each learned subtype: every lobe's events - circle = the lobe reaches z 2, diamond = z 5, square = "
+               "z 10 - at the stage where the model puts them (mean over its saved MCMC samples). Move the slider to "
+               "a stage: events reached by then are solid, later ones faint, so you can see how far tau has spread "
+               "at that stage in each subtype.")
+LIKELIHOOD_HELP = ("The trained models' MCMC, as pySuStaIn saved it (samples_likelihood), one per number of "
+                   "subtypes. Left: mean log-likelihood per number of subtypes (higher = fits the training cohort "
+                   "better, but it always rises with more subtypes). Right: the log-likelihood of every MCMC sample; "
+                   "a flat line = the MCMC was stable. From the training, not from your data.")
+PERSON_HELP = ("One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
+               "stage group (dots), their probability of each subtype, and of each stage.")
 CARD_HELP = ("One card per learned subtype: its share f in the model (mean over the MCMC samples; pySuStaIn spreads "
              "the S0 people over the subtypes too), and its lobes ordered by when they first reach z 2.")
 COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
@@ -53,10 +60,14 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
     ui.output_ui("ap_result_note"),
     ui.navset_tab(
         ui.nav_panel("Learned subtypes", ui.output_ui("ap_cards"),
-                     figure_card("When each lobe becomes abnormal", ONSET_HELP,
-                                 ui.output_image("ap_onsets", height="auto"), figure_tools("ap_onsets")),
+                     figure_card("Events of each subtype", EVENTS_HELP,
+                                 ui.input_slider("ap_stage", "Stage", min=0, max=PACKAGE["n_events"], value=6, step=1),
+                                 ui.output_image("ap_events", height="auto"), figure_tools("ap_events")),
                      figure_card("The trained model (PVD)", PVD_HELP, ui.output_image("ap_pvd", height="auto"),
-                                 figure_tools("ap_pvd"))),
+                                 figure_tools("ap_pvd")),
+                     figure_card("MCMC log-likelihood of the trained models", LIKELIHOOD_HELP,
+                                 ui.output_ui("ap_likelihood_note"), ui.output_image("ap_likelihood", height="auto"),
+                                 figure_tools("ap_likelihood"))),
         ui.nav_panel("Summary",
                      figure_card("People per group", COUNT_HELP, ui.output_image("ap_counts", height="auto"),
                                  figure_tools("ap_counts")),
@@ -64,7 +75,11 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
         ui.nav_panel("Cleanup", ui.output_ui("ap_cleanup_note"),
                      figure_card("Tau-positivity check", CLEAN_HELP, ui.output_image("ap_cleanup_plot", height="auto"),
                                  figure_tools("ap_cleanup_fig"))),
-        ui.nav_panel("Per person", ui.output_data_frame("ap_people"), table_tools("ap_people_csv")))))
+        ui.nav_panel("Per person",
+                     figure_card("One person", PERSON_HELP, ui.input_selectize("ap_person", "Person", choices=[]),
+                                 ui.output_image("ap_person_plot", height="auto"), figure_tools("ap_person")),
+                     ui.h6("All people", class_="mt-3"),
+                     ui.output_data_frame("ap_people"), table_tools("ap_people_csv")))))
 
 
 def server(input, output, session, shared):
@@ -78,7 +93,7 @@ def server(input, output, session, shared):
         z = norm["z"][~norm["left_out"]]
         if len(z) == 0:
             raise SafeException("No people left to subtype.")
-        table, prob_subtype = apply_model(z, PACKAGE, n_samples)
+        table, prob_subtype, prob_stage = apply_model(z, PACKAGE, n_samples)
         p, notes = None, list(norm["notes"])
         if cleanup:
             if not shared["cleanup_possible"]():
@@ -90,7 +105,8 @@ def server(input, output, session, shared):
                 notes += cleanup_notes
                 table = clean_up(table, tau_pos)
         table = label_table(table, SUBTYPE_NAMES, poor_fit)
-        return {"method": method, "table": table, "prob_subtype": prob_subtype, "z": z, "p_cleanup": p,
+        return {"method": method, "table": table, "prob_subtype": prob_subtype, "prob_stage": prob_stage, "z": z,
+                "p_cleanup": p,
                 "cleaned": p is not None, "notes": notes, "left_out": list(norm["z"].index[norm["left_out"]]),
                 "n_samples": n_samples}
 
@@ -207,15 +223,15 @@ def server(input, output, session, shared):
                                ui.popover(ui.span("ⓘ", class_="text-primary", style="cursor:pointer;"), CARD_HELP)),
                           ui.div(*cards, class_="tt-summary mb-3"))
 
-    def make_onsets():
-        return plot_lobe_onsets(ONSET_MEAN, ONSET_SD, PACKAGE["lobes"], PACKAGE["n_events"])
+    def make_events():
+        stage = optional_input(input, "ap_stage")
+        return plot_subtype_events(EVENTS, PACKAGE["lobes"], PACKAGE["n_events"], 6 if stage is None else int(stage))
 
     @render.image
-    def ap_onsets():
-        return as_picture(make_onsets())
+    def ap_events():
+        return as_picture(make_events())
 
-    add_figure(report_items, "ap_onsets", "When each lobe becomes abnormal (learned subtypes)", make_onsets,
-               in_report=True)
+    add_figure(report_items, "ap_events", "Events of each learned subtype", make_events, in_report=True)
 
     def make_pvd():
         """The model alone before 'Apply the model'; with the people's numbers after it."""
@@ -232,6 +248,59 @@ def server(input, output, session, shared):
         return as_picture(make_pvd())
 
     add_figure(report_items, "ap_pvd", "The trained model (PVD)", make_pvd, in_report=True)
+
+    def likelihoods():
+        if not PACKAGE["likelihoods"]:
+            raise SafeException("The saved model has no MCMC log-likelihoods (samples_likelihood).")
+        table = pd.DataFrame({"mean log-likelihood": {k: v.mean() for k, v in PACKAGE["likelihoods"].items()}})
+        return table.rename_axis("number of subtypes")
+
+    @render.ui
+    def ap_likelihood_note():
+        if PACKAGE["likelihoods"]:
+            return None
+        return ui.p("The saved model has no MCMC log-likelihoods (samples_likelihood) - the stand-in model was not "
+                    "trained. The real model's files from pySuStaIn will have them.", class_="text-muted")
+
+    def make_likelihood():
+        return plot_model_choice(likelihoods(), None, PACKAGE["likelihoods"])
+
+    @render.image
+    def ap_likelihood():
+        return as_picture(make_likelihood()) if PACKAGE["likelihoods"] else None
+
+    add_figure(report_items, "ap_likelihood", "MCMC log-likelihood of the trained models", make_likelihood)
+
+    @reactive.effect
+    def _person_choices():
+        """Tau+ people first (the first one shown), then the S0 people."""
+        res = result()
+        if res is None:
+            ui.update_selectize("ap_person", choices=[], selected=None)
+            return
+        table = res["table"]
+        people = list(table.index[table["ml_stage"] > 0]) + list(table.index[table["ml_stage"] == 0])
+        ui.update_selectize("ap_person", choices=people, selected=people[0] if people else None)
+
+    def make_person():
+        res = result()
+        person = optional_input(input, "ap_person")
+        if res is None or not person or person not in res["table"].index:
+            raise SafeException("Apply the model and choose a person.")
+        table, z = res["table"], res["z"]
+        group = pd.cut(table["ml_stage"], CONFIG["results"]["stage_edges"], right=False)
+        same = (table["subtype_number"] == table.loc[person, "subtype_number"]) & (group == group[person])
+        expected = z[same].mean() if table.loc[person, "ml_stage"] > 0 else None
+        i = table.index.get_loc(person)
+        return plot_person(person, z.loc[person], PACKAGE["lobes"], expected, res["prob_subtype"][i],
+                           res["prob_stage"][i], SUBTYPE_NAMES)
+
+    @render.image
+    def ap_person_plot():
+        res, person = result(), optional_input(input, "ap_person")
+        return as_picture(make_person()) if res is not None and person in res["table"].index else None
+
+    add_figure(report_items, "ap_person", "One person", make_person)
 
     @render.ui
     def ap_cleanup_note():

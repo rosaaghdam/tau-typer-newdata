@@ -5,6 +5,7 @@ subtype, a stage and their probabilities from the saved model (samples_sequence,
 All file names and settings come from config.yaml (section "model").
 """
 import json
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -42,11 +43,50 @@ def load_model_package(settings, root):
     names = (names + [f"Subtype {n}" for n in range(len(names) + 1, sequence.shape[0] + 1)])[:sequence.shape[0]]
     if problems:
         raise ValueError("The model files do not fit together: " + "; ".join(problems) + ".")
+    likelihoods = mcmc_likelihoods(folder, settings["samples_file"], sequence.shape[0], saved)
     return {"lobes": lobes, "Z_vals": Z_vals, "Z_max": Z_max, "samples_sequence": sequence, "samples_f": shares,
             "regions": regions, "roi_names": [str(r) for r in np.load(folder / settings["roi_names_file"])],
             "reference": pd.read_csv(folder / settings["reference_file"], index_col=settings["reference_id_column"]),
             "subtype_names": names, "n_events": n_events, "n_subtypes": sequence.shape[0], "folder": folder,
-            "n_mcmc_samples": sequence.shape[2]}
+            "n_mcmc_samples": sequence.shape[2], "likelihoods": likelihoods}
+
+
+def mcmc_likelihoods(folder, samples_file, n_subtypes, saved):
+    """{number of subtypes: log-likelihood of every saved MCMC sample} of the trained models, as pySuStaIn
+    saved them (samples_likelihood). pySuStaIn saves one file per number of subtypes (..._subtype0.pickle = 1
+    subtype, ..._subtype3.pickle = 4); the files next to the model's are read too. Empty if none has them."""
+    likelihoods = {}
+    if "samples_likelihood" in saved:
+        likelihoods[n_subtypes] = np.asarray(saved["samples_likelihood"], float).ravel()
+    if re.search(r"subtype\d+", samples_file):
+        for k in range(1, n_subtypes):
+            path = Path(folder) / re.sub(r"subtype\d+", f"subtype{k - 1}", samples_file)
+            if path.exists():
+                with open(path, "rb") as f:
+                    other = NumbersOnlyUnpickler(f).load()
+                if "samples_likelihood" in other:
+                    likelihoods[k] = np.asarray(other["samples_likelihood"], float).ravel()
+    return dict(sorted(likelihoods.items()))
+
+
+def event_stages(package):
+    """Every event of every learned subtype: the stage at which the lobe reaches each cut-point (mean over the
+    saved MCMC samples). Returns {subtype name: table lobes x cut-points (z 2, 5, 10)}, pySuStaIn's order;
+    NaN where a lobe has no such cut-point."""
+    Z_vals, lobes = package["Z_vals"], package["lobes"]
+    names = event_names(Z_vals, lobes)
+    levels = sorted(set(Z_vals[Z_vals > 0]))
+    by_f = np.argsort(package["samples_f"].mean(axis=1))[::-1]          # pySuStaIn's numbering of the subtypes
+    out = {}
+    for name, s in zip(package["subtype_names"], by_f):
+        positions = np.argsort(package["samples_sequence"][s], axis=0)  # events x samples: position of each event
+        mean_stage = positions.mean(axis=1) + 1                         # stage = position + 1
+        table = pd.DataFrame(np.nan, index=lobes, columns=levels)
+        for e, event in enumerate(names):
+            lobe, z = event.rsplit(" z", 1)
+            table.loc[lobe, float(z)] = mean_stage[e]
+        out[name] = table
+    return out
 
 
 def lobe_onsets(package):
@@ -107,7 +147,8 @@ def apply_model(z, package, n_samples):
     """Subtype and stage each person with the saved model. No training.
     z: people x lobes (z-scores). Returns one row per person: ml_subtype (1..k in pySuStaIn's order =
     largest average share first), prob_subtype, ml_stage, prob_stage, stage_sd, p_S1..p_Sk and
-    subtype_number (0 = S0: stage 0)."""
+    subtype_number (0 = S0: stage 0). Also returns pySuStaIn's prob_subtype (people x subtypes) and
+    prob_stage (people x stages 0..n_events)."""
     data = z[package["lobes"]].to_numpy(float)
     folder = tempfile.mkdtemp(prefix="tau_typer_apply_")  # pySuStaIn wants an output folder; nothing is saved
     try:
@@ -125,7 +166,7 @@ def apply_model(z, package, n_samples):
     for n in range(prob_subtype.shape[1]):
         table[f"p_S{n + 1}"] = prob_subtype[:, n]
     table["subtype_number"] = np.where(table["ml_stage"] > 0, table["ml_subtype"], 0)
-    return table, prob_subtype
+    return table, prob_subtype, prob_stage
 
 
 def tau_positive(regional, reference, cleanup_regions, threshold, gmm_settings):

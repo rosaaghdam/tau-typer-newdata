@@ -503,7 +503,7 @@ def plot_model_choice(likelihoods, cross_validation=None, traces=None):
         ax.set_xlabel("MCMC sample")
         ax.set_ylabel("log-likelihood")
         ax.set_title("MCMC per model (flat = stable)", fontsize=10)
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=8, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)    # beside, not on the lines
     fig.tight_layout()
     return fig
 

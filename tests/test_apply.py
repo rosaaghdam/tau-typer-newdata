@@ -41,7 +41,7 @@ def test_reference_pipeline_is_reproduced_exactly(package, new):
     z, _, _, _ = normalize("training", lobe_values(new, package["regions"]), package, CFG["gmm"])
     key_z = pd.read_csv(SIM / "reference_pipeline_lobar_z.csv", index_col="filename").loc[z.index, package["lobes"]]
     assert np.allclose(z.to_numpy(), key_z.to_numpy(), atol=1e-12)
-    table, _ = apply_model(z, package, CFG["n_samples"])
+    table, _, _ = apply_model(z, package, CFG["n_samples"])
     key = pd.read_csv(SIM / "expected_reference_pipeline.csv", index_col="filename").loc[table.index]
     assert (table["subtype_number"] == key["subtype"]).all() and (table["ml_stage"] == key["stage"]).all()
     assert np.allclose(table[[f"p_S{n}" for n in range(1, 5)]], key[[f"p_S{n}" for n in range(1, 5)]], atol=1e-12)
@@ -49,7 +49,7 @@ def test_reference_pipeline_is_reproduced_exactly(package, new):
 
 def test_cleanup_sets_tau_negative_people_to_s0(package, new):
     z, _, _, _ = normalize("training", lobe_values(new, package["regions"]), package, CFG["gmm"])
-    table, _ = apply_model(z, package, CFG["n_samples"])
+    table, _, _ = apply_model(z, package, CFG["n_samples"])
     _, tau_pos, notes = tau_positive(new, package["reference"], CFG["cleanup"]["regions"], CFG["cleanup"]["threshold"],
                                      CFG["gmm"])
     cleaned = clean_up(table, tau_pos)
@@ -138,8 +138,8 @@ def test_lobe_order_is_fixed_by_the_model(package, new):
     """pySuStaIn knows the lobes only by position, so the data must be in the model's biomarker order. The app
     selects the lobes by name: any column order gives the same result, while a wrong order would not."""
     z, _, _, _ = normalize("training", lobe_values(new, package["regions"]), package, CFG["gmm"])
-    right, _ = apply_model(z, package, CFG["n_samples"])
-    shuffled, _ = apply_model(z[np.random.default_rng(0).permutation(package["lobes"])], package, CFG["n_samples"])
+    right, _, _ = apply_model(z, package, CFG["n_samples"])
+    shuffled, _, _ = apply_model(z[np.random.default_rng(0).permutation(package["lobes"])], package, CFG["n_samples"])
     assert right.equals(shuffled)
     wrong = z[package["lobes"][::-1]].copy()
     wrong.columns = package["lobes"]                       # values handed over in the reversed order
@@ -155,3 +155,28 @@ def test_lobe_onsets_follow_the_samples(package):
     assert list(means.index) == package["subtype_names"] and list(means.columns) == package["lobes"]
     assert means.min().min() >= 1 and means.max().max() <= package["n_events"] and (sds >= 0).all().all()
     assert np.allclose(sorted(shares, reverse=True), sorted(package["samples_f"].mean(axis=1), reverse=True))
+
+
+def test_mcmc_likelihoods_of_every_model(tmp_path):
+    """mcmc_likelihoods: one trace per saved model (..._subtype0 = 1 subtype, ...); models without
+    samples_likelihood are skipped."""
+    import pickle
+    from src.trained_model import mcmc_likelihoods
+    for k in (1, 2):
+        with open(tmp_path / f"m_subtype{k - 1}.pickle", "wb") as f:
+            pickle.dump({"samples_likelihood": np.full((5, 1), -100.0 * k)}, f)
+    main = {"samples_likelihood": np.arange(5.0).reshape(5, 1)}
+    traces = mcmc_likelihoods(tmp_path, "m_subtype3.pickle", 4, main)
+    assert list(traces) == [1, 2, 4] and traces[2][0] == -200 and traces[4].shape == (5,)
+    assert list(mcmc_likelihoods(tmp_path, "m_subtype3.pickle", 4, {})) == [1, 2]
+
+
+def test_event_stages_put_every_event_once(package):
+    """event_stages: per subtype a lobes x cut-points table; together the events fill stages 1..n_events once each
+    when every MCMC sample has the same order (the stand-in model)."""
+    from src.trained_model import event_stages
+    events = event_stages(package)
+    assert list(events) == package["subtype_names"]
+    for table in events.values():
+        assert list(table.index) == package["lobes"] and table.notna().sum().sum() == package["n_events"]
+        assert sorted(table.stack()) == list(range(1, package["n_events"] + 1))

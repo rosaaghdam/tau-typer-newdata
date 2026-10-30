@@ -146,8 +146,9 @@ model:
   roi_names_file: mod_cols.npy               # every region name the model's data had
   reference_file: X_merge_preExp3.csv        # the training cohort's regional SUVRs (method A normalization)
   reference_id_column: sid
-  # Subtype names in pySuStaIn's own order (largest average share first). Stand-in: invented names.
-  subtype_names: [MTL-first, MTL-late, posterior-first, temporal-first]
+  # Subtype names in pySuStaIn's own order (largest average share first). Numbers for now; give them
+  # descriptive names here later (e.g. [MTL-first, ...]) - no code changes needed.
+  subtype_names: [Subtype 1, Subtype 2, Subtype 3, Subtype 4]
   n_samples: 1000                            # MCMC samples used to subtype and stage (reference pipeline: 1000)
   gmm: {random_state: 123, tol: 0.00001, max_iter: 1000}    # GMM settings of the reference pipeline
   cleanup:                                   # false-positive check (entorhinal / precuneus)

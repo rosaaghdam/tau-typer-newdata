@@ -152,24 +152,38 @@ def plot_z_heatmap(z, lobes, limits=(-3, 10), order=None):
     return fig
 
 
-def plot_lobe_onsets(means, sds, lobes, n_events, colors=None):
-    """The learned subtypes side by side: for every lobe, the stage at which it reaches z 2 in each subtype
-    (dot = mean over the model's MCMC samples, line = +- 1 SD). Early lobes on the left = where the subtype starts."""
-    k = len(means)
+def plot_subtype_events(events, lobes, n_events, stage, colors=None, per_row=2):
+    """The learned subtypes, one panel each: every lobe's events (circle = z 2, diamond = z 5, square = z 10) at
+    the stage where the model puts them (mean over its MCMC samples). Events reached by the chosen stage are
+    solid, later ones faint; the vertical line marks the chosen stage."""
+    k = len(events)
     shades = subtype_colors(k, colors)
-    fig, ax = plt.subplots(figsize=(9, 0.42 * len(lobes) + 1.6))
+    markers = ["o", "D", "s", "^", "v", "P"]
+    n_rows = int(np.ceil(k / per_row))
+    fig, axes = plt.subplots(n_rows, per_row, figsize=(6.2 * per_row, 0.38 * len(lobes) * n_rows + 1.4 * n_rows),
+                             squeeze=False)
     y = np.arange(len(lobes))
-    offsets = np.linspace(-0.27, 0.27, k) if k > 1 else [0]
-    for (name, row), shade, off in zip(means.iterrows(), shades, offsets):
-        ax.errorbar(row[lobes].to_numpy(), y + off, xerr=sds.loc[name, lobes].to_numpy(), fmt="o", ms=5, lw=1.2,
-                    color=shade, label=name)
-    ax.set_yticks(y, [nice_region(lobe) for lobe in lobes])
-    ax.invert_yaxis()
-    ax.set_xlim(0.5, n_events + 0.5)
-    ax.set_xlabel("stage at which the lobe reaches z 2 (mean +- SD over the model's MCMC samples)")
-    ax.grid(axis="x", lw=0.4, alpha=0.5)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=k, frameon=False, fontsize=9)
-    fig.tight_layout()
+    for ax in axes.flat[k:]:
+        ax.set_visible(False)
+    for ax, (name, table), shade in zip(axes.flat, events.items(), shades):
+        for row, lobe in enumerate(lobes):
+            stages = table.loc[lobe].dropna()
+            ax.plot(stages, [row] * len(stages), color=shade, lw=1, alpha=0.25)
+            for (z, x), marker in zip(stages.items(), markers):
+                ax.plot(x, row, marker, ms=8, color=shade, alpha=1 if x <= stage else 0.18)
+        ax.axvline(stage, color="#1F2933", lw=1.2)
+        ax.set_yticks(y, [nice_region(lobe) for lobe in lobes])
+        ax.set_ylim(len(lobes) - 0.5, -0.5)
+        ax.set_xlim(0, n_events + 0.5)
+        ax.set_xlabel("stage")
+        ax.grid(axis="x", lw=0.4, alpha=0.5)
+        ax.set_title(name, loc="left", fontsize=12, fontweight="bold")
+    levels = list(next(iter(events.values())).columns)
+    handles = [plt.Line2D([], [], ls="", marker=m, ms=8, mfc="none", mec="#1F2933") for m in markers[:len(levels)]]
+    fig.legend(handles, [f"z = {z:g}" for z in levels], loc="upper left", ncol=len(levels), frameon=False,
+               title=f"Stage {stage}: solid = event reached, faint = later event", title_fontsize=10,
+               alignment="left")
+    fig.tight_layout(rect=(0, 0, 1, 1 - 0.75 / fig.get_figheight()))
     return fig
 
 

@@ -29,7 +29,7 @@ z, normals, _, notes = normalize("training", lobes, package, cfg["gmm"])
 reference_z = pd.read_csv(SIM / "reference_pipeline_lobar_z.csv", index_col="filename")[package["lobes"]]
 print("largest z difference from the reference pipeline:", float(np.abs(z.values - reference_z.loc[z.index].values).max()))
 
-table, _ = apply_model(z, package, cfg["n_samples"])
+table, _, _ = apply_model(z, package, cfg["n_samples"])
 key = pd.read_csv(SIM / "expected_reference_pipeline.csv", index_col="filename").loc[table.index]
 print("same subtype as the reference:", bool((table.subtype_number == key.subtype).all()),
       "| same stage:", bool((table.ml_stage == key.stage).all()),
