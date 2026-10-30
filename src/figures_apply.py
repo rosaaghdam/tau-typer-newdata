@@ -386,13 +386,16 @@ def plot_scan_check(person, p_row, threshold, before, after):
     and after the check (title)."""
     fig, ax = plt.subplots(figsize=(8, 0.45 * len(p_row) + 1.5))
     y = np.arange(len(p_row))
-    ax.barh(y, p_row.to_numpy(float), color=[RETAINED if v > threshold else "#BFC5CE" for v in p_row], height=0.6)
-    for row, value in enumerate(p_row):
-        ax.text(min(value, 1) + 0.01, row, f"{value:.3f}", va="center", fontsize=9)
+    ax.axvspan(threshold, 1.02, color="#E3F1EE", zorder=0)                   # above the threshold
+    ax.hlines(y, 0, 1, color="#E4E7EB", lw=6, zorder=1)                     # each ROI's 0-1 track
+    for row, value in enumerate(p_row.to_numpy(float)):                    # a dot: visible even at 0
+        above = value > threshold
+        ax.plot(value, row, "o", ms=11, color=RETAINED if above else RESET, zorder=3)
+        ax.text(value + 0.03, row, f"{value:.3f}" + ("  above" if above else ""), va="center", fontsize=9)
     ax.axvline(threshold, ls="--", color="#C62828", lw=1.2, label=f"threshold {threshold:g}")
     ax.set_yticks(y, [short_region(c) for c in p_row.index])
     ax.invert_yaxis()
-    ax.set_xlim(0, 1.12)
+    ax.set_xlim(-0.03, 1.15)
     ax.set_xlabel(PROB_LABEL)
     ax.set_title(f"{person}: {before}  ->  {after}", loc="left", fontsize=11, fontweight="bold")
     ax.legend(loc="lower right", frameon=False, fontsize=9)

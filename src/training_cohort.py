@@ -8,8 +8,9 @@ from src.trained_model import apply_model, check_z, clean_up, label_table, lobe_
 
 
 def training_table(package, model_cfg, names, cleanup, threshold, n_samples, poor_fit):
-    """One row per training person: subtype, stage, ... (as the user's result table). Normalization: method 1 (the
-    training cohort's own GMM normal) - the scale the model was trained on."""
+    """(one row per training person: subtype, stage, ... as the user's result table; their lobe z-scores).
+    Normalization: method 1 (the training cohort's own GMM normal) - the scale the model was trained on. The
+    z-scores are only used for group averages (e.g. the tau pattern of each subtype)."""
     reference = package["reference"]
     z = normalize("training", lobe_values(reference, package["regions"]), package, model_cfg["gmm"])[0]
     z = z[~check_z(z, package, model_cfg["max_z_above_z_max"])]
@@ -18,7 +19,7 @@ def training_table(package, model_cfg, names, cleanup, threshold, n_samples, poo
         _, tau_pos, _ = tau_positive(reference.loc[z.index], reference, model_cfg["cleanup"]["regions"], threshold,
                                      model_cfg["gmm"])
         table = clean_up(table, tau_pos)
-    return label_table(table, names, poor_fit)
+    return label_table(table, names, poor_fit), z
 
 
 def study_counts(table, study, names):

@@ -10,6 +10,7 @@ from src.brain3d import picture_figure, subtype_brains_png
 from src.figures import plot_cohort_subtypes, plot_person, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
 from src.figures_apply import boxplot_limits, plot_lobe_boxplots, plot_stage_histograms, score_cmap
 from src.hover_figure import hover_figure_html
+from src.compare import run_file
 from src.results import subtype_summary
 from src.training_cohort import clinical_table, study_counts, training_table
 
@@ -17,9 +18,13 @@ REF_COLUMNS = CONFIG["model"]["reference_columns"]     # study, age, sex, diagno
 HELP = {
     "patterns": "Average z-score of each lobe (rows) in each subtype (columns), tau+ people only "
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
+    "boxes_train": "The same box plots for the training cohort (the trained model applied to its own people, "
+                   "normalization method 1, the settings of your run). The y range is shared with your data's figure.",
+    "patterns_train": "The same for the training cohort: the trained model applied to its own people (normalization "
+                      "method 1, the settings of your run). Group averages only. The same colour scale as your data.",
     "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
              "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range - from the "
-             "lowest to the highest z-score of all lobes - so the lobes can be compared.",
+             "lowest to the highest z-score of all lobes (yours and the training cohort's) - so the lobes and the two figures can be compared.",
     "trajectory": "One subtype in your data on 3D brains (left and right, outside and inside views): top row, the "
                   "average z-score of all its tau+ people; below, the people in each stage group (1-6, 7-12, ...), so "
                   "you can follow tau spreading. Each lobe is coloured on its cortex regions: grey = below z 2 (normal), "
@@ -31,8 +36,8 @@ HELP = {
     "stage_hist": "The stages of each subtype's people.",
     "probs": "How clearly each tau+ person belongs to one subtype: each corner is a subtype; close to a corner = "
              "clearly that subtype, towards the middle = a mix. Move the mouse over a dot: the person, their two most "
-             "likely subtypes with probabilities, and their stage. Example data: also the true subtype, and a red "
-             "ring around people whose subtype differs from the truth.",
+             "likely subtypes with probabilities, and their stage. Example data: also the true subtype; the table "
+             "below lists the people whose subtype differs from the truth.",
     "person": "One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
               "stage group (dots); their probability of each of the 5 groups - S0 (stage 0) and Subtypes 1-4 (a "
               "stage above 0), together 1 - and of each stage. The false-positive check (step 3) can still move a "
@@ -49,13 +54,24 @@ def side_by_side(yours, yours_csv, training, training_csv):
         col_widths=[6, 6], class_="mt-2")
 
 
-panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(ui.output_ui("rs_banner"), ui.navset_tab(
+panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(
+    ui.div(ui.output_ui("rs_banner"),
+           ui.download_button("rs_run_file", "Save run file (CSV)", class_="btn-sm btn-outline-secondary"),
+           class_="d-flex align-items-center gap-3"),
+    ui.navset_tab(
     ui.nav_panel("Overview", ui.output_ui("rs_training_note"),
                  side_by_side("rs_summary", "rs_summary_csv", "rs_summary_train", "rs_summary_train_csv"),
-                 figure_card("Tau pattern of each subtype", HELP["patterns"], ui.output_image("rs_patterns", height="auto"),
-                             figure_tools("rs_patterns"))),
-    ui.nav_panel("Lobes per subtype", figure_card("z-scores per group", HELP["boxes"],
-                                                  ui.output_image("rs_boxes", height="auto"), figure_tools("rs_boxes"))),
+                 ui.layout_columns(
+                     figure_card("Tau pattern of each subtype: your data", HELP["patterns"],
+                                 ui.output_image("rs_patterns", height="auto"), figure_tools("rs_patterns")),
+                     figure_card("Tau pattern of each subtype: training cohort", HELP["patterns_train"],
+                                 ui.output_image("rs_patterns_train", height="auto"), figure_tools("rs_patterns_train")),
+                     col_widths=[6, 6])),
+    ui.nav_panel("Lobes per subtype",
+                 figure_card("z-scores per group: your data", HELP["boxes"],
+                             ui.output_image("rs_boxes", height="auto"), figure_tools("rs_boxes")),
+                 figure_card("z-scores per group: training cohort", HELP["boxes_train"],
+                             ui.output_image("rs_boxes_train", height="auto"), figure_tools("rs_boxes_train"))),
     ui.nav_panel("Trajectory", figure_card("Trajectory", HELP["trajectory"],
                                            ui.input_select("rs_brain_subtype", "Subtype", choices=SUBTYPE_NAMES,
                                                            width="14rem"),
@@ -63,7 +79,7 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(ui.output_ui(
     ui.nav_panel("Stages",
                  figure_card("Stages and their certainty", HELP["stages"],
                              ui.input_numeric("rs_sd_limit", "Stage uncertainty limit (SD, in stages)", value=1.0,
-                                              min=0, step=0.5, width="18rem"),
+                                              min=0, step=0.1, width="18rem"),
                              ui.output_ui("rs_stages"), figure_tools("rs_stages"),
                              ui.output_ui("rs_uncertain_note"), ui.output_data_frame("rs_uncertain"),
                              table_tools("rs_uncertain_csv")),
@@ -133,10 +149,23 @@ def server(input, output, session, shared):
 
     add_figure(report_items, "rs_patterns", "Tau pattern of each subtype", make_patterns, in_report=True)
 
+    def box_limits():
+        """One y range for both box plot figures (your data and the training cohort), so they compare directly."""
+        both = pd.concat([res()["z"][PACKAGE["lobes"]], training_z()[PACKAGE["lobes"]]])
+        return boxplot_limits(both, PACKAGE["lobes"], CONFIG["app"]["boxplot_limits"])
+
     def make_boxes():
         r = res()
-        return plot_lobe_boxplots(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES,
-                                  limits=boxplot_limits(r["z"], PACKAGE["lobes"], CONFIG["app"]["boxplot_limits"]))
+        return plot_lobe_boxplots(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES, limits=box_limits())
+
+    def make_boxes_train():
+        return plot_lobe_boxplots(training_z(), training(), PACKAGE["lobes"], SUBTYPE_NAMES, limits=box_limits())
+
+    @render.image
+    def rs_boxes_train():
+        return as_picture(make_boxes_train()) if shown() else None
+
+    add_figure(report_items, "rs_boxes_train", "z-scores per group (training cohort)", make_boxes_train, in_report=True)
 
     @render.image
     def rs_boxes():
@@ -223,14 +252,14 @@ def server(input, output, session, shared):
     @render.ui
     def rs_probs():
         """On the page: the same picture, with the person under the mouse (example data: also the true subtype;
-        a red ring = a different subtype than the truth)."""
+        the table below lists the people whose subtype differs from the truth)."""
         if not shown():
             return None
         r = res()
         fig = make_probs()
         ax, xy, rows = fig.tt_dots
         table, truth = r["table"], true_subtypes()
-        tips, wrong = [], []
+        tips = []
         for row in rows:
             person, p = table.index[row], r["prob_subtype"][row]
             order = np.argsort(p)[::-1]
@@ -240,8 +269,7 @@ def server(input, output, session, shared):
             if true is not None:
                 tip += f" · true: {true}"
             tips.append(tip)
-            wrong.append(true is not None and true != table["subtype"].iloc[row])
-        return ui.HTML(hover_figure_html(fig, ax, xy, tips, wrong, element_id="rs_probs_hover"))
+        return ui.HTML(hover_figure_html(fig, ax, xy, tips, element_id="rs_probs_hover"))
 
     add_figure(report_items, "rs_probs", "Subtype probabilities", make_probs, in_report=True)
 
@@ -272,7 +300,7 @@ def server(input, output, session, shared):
             return None
         n_tau = int((res()["table"]["ml_stage"] > 0).sum())
         return ui.h6(f"Example data: {len(wrong_subtypes())} of {n_tau} tau+ people have a different subtype than "
-                     "their true one (red rings above)", class_="mt-3")
+                     "their true one", class_="mt-3")
 
     @render.data_frame
     def rs_wrong():
@@ -328,6 +356,26 @@ def server(input, output, session, shared):
 
     add_table(report_items, "rs_clinical_csv", "Clinical summary per group", clinical, in_report=True)
 
+    # ---------- This run as a file, and both runs for step 5 (Compare: Datasets) ----------
+    def current_run():
+        """(results table, diagnosis or None, amyloid or None, settings) of the run shown here."""
+        from src.normalization import METHODS
+        r, cols, data = res(), shared["columns"](), shared["data"]()
+        people = data.loc[r["table"].index]
+        settings = {"normalization": METHODS[r["method"]], "false-positive check": r["cleaned"],
+                    "threshold": r["fp_threshold"], "MCMC samples": r["n_samples"], "poor fit below": r["poor_fit"],
+                    "model": CONFIG["model"]["samples_file"]}
+        return (r["table"], people[cols["diagnosis"]] if cols["diagnosis"] else None,
+                people[cols["amyloid"]] if cols["amyloid"] else None, settings)
+
+    def save_run_file():
+        table, diagnosis, amyloid, settings = current_run()
+        yield run_file(table, settings, diagnosis, amyloid).to_csv()
+    save_run_file.__name__ = "rs_run_file"
+    render.download_button(filename="tau_typer_run.csv")(save_run_file)
+
+    shared["current_run"] = current_run
+
     # ---------- The same tables for the training cohort (group numbers only) ----------
     training_cache = {}
 
@@ -337,7 +385,12 @@ def server(input, output, session, shared):
         key = (r["cleaned"], r["fp_threshold"], r["n_samples"], r["poor_fit"])
         if key not in training_cache:
             training_cache[key] = training_table(PACKAGE, CONFIG["model"], SUBTYPE_NAMES, *key)
-        return training_cache[key]
+        return training_cache[key][0]
+
+    def training_z():
+        training()                                       # makes sure the cache is filled
+        r = res()
+        return training_cache[(r["cleaned"], r["fp_threshold"], r["n_samples"], r["poor_fit"])][1]
 
     @render.ui
     def rs_training_note():
@@ -346,6 +399,28 @@ def server(input, output, session, shared):
         return ui.p(f"Training cohort: the trained model applied to its own {len(PACKAGE['reference'])} people "
                     "(normalization method 1, as in training; the same cleanup, threshold, MCMC samples and poor-fit "
                     "settings as your run). Only group numbers are shown.", class_="small text-muted mt-2")
+
+    def training_run():
+        """The training cohort's run for step 5: its results, diagnosis, amyloid and settings (group numbers only
+        are ever shown)."""
+        r = res()
+        reference = PACKAGE["reference"]
+        return (training(), reference[REF_COLUMNS["diagnosis"]], reference[REF_COLUMNS["amyloid"]],
+                {"normalization": "1 (as in training)", "false-positive check": r["cleaned"],
+                 "threshold": r["fp_threshold"], "MCMC samples": r["n_samples"], "poor fit below": r["poor_fit"]})
+
+    shared["training_run"] = training_run
+
+    def make_patterns_train():
+        return plot_subtype_patterns(training_z(), training(), PACKAGE["lobes"], SUBTYPE_NAMES, vmax=10,
+                                     cmap=score_cmap((0, 10)))
+
+    @render.image
+    def rs_patterns_train():
+        return as_picture(make_patterns_train()) if shown() else None
+
+    add_figure(report_items, "rs_patterns_train", "Tau pattern of each subtype (training cohort)", make_patterns_train,
+               in_report=True)
 
     def summary_train():
         out = subtype_summary(training())

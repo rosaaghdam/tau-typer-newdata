@@ -9,7 +9,7 @@ from conftest import APP, errors
 START = {"up_col_id": "filename", "up_col_cohort": "study", "up_col_age": "age", "up_col_sex": "sex",
          "up_col_diagnosis": "diagnosis", "up_col_amyloid": "amyloid",
          "nm_method": "training", "nm_lobe": "L_MTL", "ap_cleanup": True, "ap_fp_threshold": 0.9, "ap_poor": 0.5, "ap_samples": 200,
-         "rs_sd_limit": 1.0, "ap_run": 0, "cp_run": 0,
+         "rs_sd_limit": 1.0, "ap_run": 0, "cp_run": 0, "ds_builtin": ["current", "training"],
          "up_region_pick": ["ctx-lh-entorhinal", "ctx-rh-entorhinal"]}
 
 
@@ -39,13 +39,13 @@ def test_whole_app_with_the_example_data():
         ts.set_inputs(rs_sd_limit=1.5)                           # some outputs follow on the next update
         assert errors(ts) == {}
         ok(ts, "ap_counts", "ap_pvd", "ap_events", "ap_brain", "ap_cleanup_plot", "ap_cleanup_scan_plot", "rs_person_plot", "rs_summary", "rs_patterns", "rs_boxes",
-           "rs_brain", "rs_stages", "rs_uncertain", "rs_stage_hist", "rs_probs", "rs_wrong", "rs_studies", "rs_study_table", "rs_clinical", "rs_summary_train", "rs_study_train", "rs_clinical_train",
+           "rs_brain", "rs_stages", "rs_uncertain", "rs_stage_hist", "rs_probs", "rs_wrong", "rs_studies", "rs_study_table", "rs_clinical", "rs_summary_train", "rs_patterns_train", "rs_boxes_train", "rs_study_train", "rs_clinical_train",
            "rp_note")
 
         ts.set_inputs(cp_run=1)                                  # step 5: every method
         ts.set_inputs(cp_a="1. Reference pipeline: training cohort's GMM normal", cp_b="truth")
         assert errors(ts) == {}
-        ok(ts, "cp_counts", "cp_counts_table", "cp_agreement", "cp_pair", "cp_pair_stages", "cp_normals")
+        ok(ts, "cp_metrics", "ds_metrics", "ds_counts", "cp_counts", "cp_counts_table", "cp_agreement", "cp_pair", "cp_pair_stages", "cp_normals")
 
 
 def test_upload_with_other_column_names_and_a_region_chosen_by_hand(tmp_path):

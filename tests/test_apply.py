@@ -191,3 +191,23 @@ def test_brain_trajectory_levels(package):
     assert atlas_name("ctx-lh-entorhinal") == "L_entorhinal"
     assert set(region_levels(events, package["regions"], 0).values()) == {1}
     assert set(region_levels(events, package["regions"], package["n_events"]).values()) == {1 + events.shape[1]}
+
+
+def test_run_metrics_and_run_file_round_trip():
+    """run_metrics: group %, certainty and biological sense; run_file -> read_run_file gives the same table back."""
+    from src.compare import read_run_file, run_file, run_metrics
+    table = pd.DataFrame({"subtype": ["S0", "Subtype 1", "Subtype 1", "S0"], "subtype_number": [0, 1, 1, 0],
+                          "ml_stage": [0, 5, 9, 0], "prob_subtype": [0.9, 0.8, 0.4, 0.7],
+                          "stage_sd": [0.1, 0.5, 2.0, 0.2], "poor_fit": [False, False, True, False]},
+                         index=["a", "b", "c", "d"])
+    dx = pd.Series(["CN", "AD", "AD", "CN"], index=table.index)
+    am = pd.Series(["neg", "pos", "pos", "pos"], index=table.index)
+    m = run_metrics(table, ["Subtype 1"], dx, am, ["CN"])
+    assert m["S0, %"] == 50 and m["poor fit, % of tau+"] == 50
+    assert m["amyloid-neg. CN: S0, %"] == 100 and m["amyloid-pos. AD: with a subtype, %"] == 100
+    import io
+    buffer = io.StringIO()
+    run_file(table, {"method": "test"}, dx, am).to_csv(buffer)
+    back, dx2, am2, settings = read_run_file(pd.read_csv(io.StringIO(buffer.getvalue())))
+    assert list(back["subtype"]) == list(table["subtype"]) and settings == {"method": "test"}
+    assert run_metrics(back, ["Subtype 1"], dx2, am2, ["CN"]).equals(m)
