@@ -6,7 +6,7 @@ from shiny.types import SafeException
 
 from common import (CONFIG, PACKAGE, ROOT, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
-from src.brain import plot_brain_figure
+from src.brain3d import picture_figure, subtype_brains_png
 from src.figures import plot_cohort_subtypes, plot_person, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
 from src.figures_apply import boxplot_limits, plot_lobe_boxplots, plot_stage_histograms, score_cmap
 from src.hover_figure import hover_figure_html
@@ -18,9 +18,11 @@ HELP = {
     "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
              "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range - from the "
              "lowest to the highest z-score of all lobes - so the lobes can be compared.",
-    "brain": "The subtypes on the brain (Vogel et al. 2021 Fig. 1c/1e): top, each subtype's average z-score; "
-             "bottom, each subtype through the stages (people in groups of five stages). Each lobe is drawn on its "
-             "Desikan-Killiany regions; grey = below z 2.",
+    "trajectory": "One subtype in your data on 3D brains (left and right, outside and inside views): top row, the "
+                  "average z-score of all its tau+ people; below, the people in each stage group (1-6, 7-12, ...), so "
+                  "you can follow tau spreading. Each lobe is coloured on its cortex regions: grey = below z 2 (normal), "
+                  "light to dark blue = z 2 to 10; white = regions in no lobe of the model. Hippocampus and amygdala lie "
+                  "inside the brain and are not drawn. Drawn with yabplot the first time (~10 s), then kept.",
     "stages": "Top: % of the tau+ people at each stage, coloured by subtype. Bottom: how sure the model is about "
               "each person's stage (SD of their stage probabilities); dashed red = your limit.",
     "stage_hist": "The stages of each subtype's people.",
@@ -40,8 +42,10 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(ui.output_ui(
                              figure_tools("rs_patterns"))),
     ui.nav_panel("Lobes per subtype", figure_card("z-scores per group", HELP["boxes"],
                                                   ui.output_image("rs_boxes", height="auto"), figure_tools("rs_boxes"))),
-    ui.nav_panel("Brain", figure_card("Subtypes on the brain", HELP["brain"],
-                                      ui.output_image("rs_brain", height="auto"), figure_tools("rs_brain"))),
+    ui.nav_panel("Trajectory", figure_card("Trajectory", HELP["trajectory"],
+                                           ui.input_select("rs_brain_subtype", "Subtype", choices=SUBTYPE_NAMES,
+                                                           width="14rem"),
+                                           ui.output_image("rs_brain", height="auto"), figure_tools("rs_brain"))),
     ui.nav_panel("Stages",
                  figure_card("Stages and their certainty", HELP["stages"],
                              ui.input_numeric("rs_sd_limit", "Stage uncertainty limit (SD, in stages)", value=1.0,
@@ -121,18 +125,23 @@ def server(input, output, session, shared):
 
     add_figure(report_items, "rs_boxes", "z-scores per group", make_boxes, in_report=True)
 
-    def make_brain():
+    def brain_png():
         r = res()
-        fig = plot_brain_figure(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES, PACKAGE["n_events"], vmax=10)
-        if fig is None:
-            raise SafeException("The lobe names could not be placed on the brain atlas.")
-        return fig
+        name = optional_input(input, "rs_brain_subtype") or SUBTYPE_NAMES[0]
+        with ui.Progress(min=0, max=1) as progress:     # only the first time for these people: kept afterwards
+            progress.set(0.5, message=f"Drawing {name} on the brain ...", detail="first time only")
+            return subtype_brains_png(r["z"], r["table"], PACKAGE["lobes"], PACKAGE["regions"],
+                                      SUBTYPE_NAMES.index(name) + 1, name, CONFIG["results"]["stage_edges"],
+                                      ROOT / CONFIG["app"]["brain_cache"])
+
+    def make_brain():
+        return picture_figure(brain_png())
 
     @render.image
     def rs_brain():
         return as_picture(make_brain()) if shown() else None
 
-    add_figure(report_items, "rs_brain", "Subtypes on the brain", make_brain, in_report=True)
+    add_figure(report_items, "rs_brain", "Trajectory", make_brain, in_report=True)
 
     def make_stages():
         return plot_stages(res()["table"], SUBTYPE_NAMES, sd_limit=input.rs_sd_limit())
