@@ -1,5 +1,7 @@
 """Tab 2 - Normalize: turn the 10 lobe values into z-scores on the trained model's scale, with a choice of
 where "normal" comes from (src/normalization.py)."""
+from functools import lru_cache
+
 import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
@@ -10,7 +12,7 @@ from src.figures import plot_gmm_fit
 from src.figures_apply import plot_z_heatmap, plot_z_histograms
 from src.heatmap_html import heatmap_html
 from src.normalization import METHODS, normalize
-from src.trained_model import check_z
+from src.trained_model import check_z, lobe_values
 
 GMM_HELP = ("One lobe: histogram of the values the Gaussian mixture saw (the training cohort for method 1, your "
             "people for 2) "
@@ -22,7 +24,16 @@ HEAT_HELP = ("Each row is one person, each column one lobe; rows are sorted by t
              "(-3 to 10): white up to 0 (normal or below), light blue at 2 (the model's first cut-point), blue at 5, "
              "dark blue to black up to 10 (the highest cut-point). Scores beyond -3 or 10 get the end colours. Move "
              "the mouse over a cell for the exact score.")
-HIST_HELP = "The z-scores of each lobe; dashed red lines = the model's cut-points (z 2, 5, 10)."
+HIST_HELP = ("The z-scores of each lobe: your data (filled) with the method you chose, and the training cohort "
+             "(orange outline) on the scale the model was trained on (method 1, its own GMM normal). Both as % "
+             "of their people, as the groups differ in size. Dashed red lines = the model's cut-points (z 2, 5, 10).")
+
+
+@lru_cache(maxsize=1)
+def training_z():
+    """The training cohort's own z-scores (method 1): the scale the model was trained on. Computed once."""
+    lobes = lobe_values(PACKAGE["reference"], PACKAGE["regions"])
+    return normalize("training", lobes, PACKAGE, CONFIG["model"]["gmm"])[0]
 
 
 def cn_labels():
@@ -139,7 +150,8 @@ def server(input, output, session, shared):
     add_figure(report_items, "nm_gmm", "GMM fit of one lobe", make_gmm)
 
     def make_hist():
-        return plot_z_histograms(normalized()["z"], PACKAGE["lobes"], tuple(sorted(set(PACKAGE["Z_vals"].ravel()) - {0})))
+        return plot_z_histograms(normalized()["z"], PACKAGE["lobes"], tuple(sorted(set(PACKAGE["Z_vals"].ravel()) - {0})),
+                                 training_z())
 
     @render.image
     def nm_hist():

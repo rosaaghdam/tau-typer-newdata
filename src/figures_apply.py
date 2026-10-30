@@ -152,20 +152,30 @@ def plot_z_heatmap(z, lobes, limits=(-3, 10), order=None):
     return fig
 
 
-def plot_z_histograms(z, lobes, cut_points=(2, 5, 10)):
-    """z-scores of each lobe; dashed lines = the model's cut-points (z 2, 5, 10)."""
+def plot_z_histograms(z, lobes, cut_points=(2, 5, 10), training_z=None):
+    """z-scores of each lobe; dashed lines = the model's cut-points (z 2, 5, 10). With training_z: the training
+    cohort's z-scores as an outline, both groups as % of their people (the groups differ in size)."""
     fig, axes, cells = _panels(lobes)
     for ax, lobe in zip(axes.flat, cells):
         if lobe is None:
             ax.set_visible(False)
             continue
-        ax.hist(z[lobe].dropna(), bins=40, color=NEW_COLOR)
+        if training_z is None:
+            ax.hist(z[lobe].dropna(), bins=40, color=NEW_COLOR)
+            ax.set_title(nice_region(lobe))
+        else:
+            _test_vs_training_hist(ax, z[lobe].dropna(), training_z[lobe].dropna(), nice_region(lobe), "")
+            ax.title.set_fontsize(plt.rcParams["axes.titlesize"])
         for cut in cut_points:
             ax.axvline(cut, ls="--", lw=0.9, color="#C62828")
-        ax.set_title(nice_region(lobe))
         ax.set_xlabel("z-score", fontsize=7)
         if ax.get_subplotspec().is_first_col():
-            ax.set_ylabel("people")
+            ax.set_ylabel("people" if training_z is None else "% of people")
+    if training_z is not None:
+        handles, labels = axes.flat[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False, fontsize=9)
+        fig.tight_layout(rect=(0, 0, 1, 0.94))
+        return fig
     fig.tight_layout()
     return fig
 
