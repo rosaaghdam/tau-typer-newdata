@@ -1,8 +1,10 @@
 """Figures of the new app (applying a trained model). Same look as src/figures.py (tau_typer.mplstyle)."""
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import pandas as pd
+from matplotlib.colors import LinearSegmentedColormap
+from scipy.stats import ttest_ind
+from statsmodels.stats.multitest import multipletests
 
 from src.figures import left_right_layout, nice_region, style_colorbar, subtype_colors
 from src.roi_names import region_key
@@ -94,18 +96,27 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
     return fig
 
 
-HEAT_CMAP = "OrRd"                         # near-white (low) -> orange (moderate) -> dark red (high)
 HEAT_LABEL = "Standardized regional score"
-# standardized scores (can be negative): one scale from white (lowest) -> blue -> dark blue -> black (highest)
-SCORE_CMAP = LinearSegmentedColormap.from_list("score", ["#FFFFFF", "#9ECAE1", "#2171B5", "#08306B", "#000000"])
+BLUES = ["#FFFFFF", "#DEEBF7", "#9ECAE1", "#4292C6", "#2171B5", "#08306B", "#000000"]   # white -> blue -> black
+VALUE_CMAP = LinearSegmentedColormap.from_list("values", BLUES)        # e.g. SUVR: evenly from the low to the high limit
+
+
+def score_cmap(limits):
+    """Standardized scores: white up to 0 (normal), light blue at the model's first cut-point (z 2), blue at 5,
+    dark blue to black at the top - so normal people stay white and blue means abnormal tau."""
+    low, high = limits
+    stops = [(low, "#FFFFFF"), (0, "#F7FBFF"), (2, "#9ECAE1"), (5, "#2171B5"), ((5 + high) / 2, "#08306B"),
+             (high, "#000000")]
+    return LinearSegmentedColormap.from_list("score", [((v - low) / (high - low), c) for v, c in stops
+                                                       if low <= v <= high])
 
 
 def heatmap_scale(limits):
-    """(colour map, norm) of a heatmap with fixed limits: standardized scores (a scale that reaches below 0) go
-    white -> blue -> dark blue -> black; values that stay above 0 (e.g. SUVR) go near-white -> dark red."""
+    """(colour map, norm) of a heatmap with fixed limits, white -> blue -> black: standardized scores (a scale that
+    reaches below 0) are anchored at 0, 2 and 5; other values (e.g. SUVR) change evenly from low to high."""
     if limits[0] < 0 < limits[1]:
-        return SCORE_CMAP, plt.Normalize(*limits)
-    return plt.get_cmap(HEAT_CMAP), plt.Normalize(*limits)
+        return score_cmap(limits), plt.Normalize(*limits)
+    return VALUE_CMAP, plt.Normalize(*limits)
 
 
 def heatmap_order(z, lobes):
@@ -306,9 +317,11 @@ def region_limits(training, low=1, high=99):
 
 
 def region_comparison(new, training):
-    """Per region: the test data's and the training cohort's mean (SD), the difference and the standardized
-    difference (Cohen's d = difference / pooled SD) with its size: |d| < 0.2 negligible, 0.2-0.5 small,
-    0.5-0.8 medium, >= 0.8 large (Cohen 1988)."""
+    """Per region: the test data's and the training cohort's mean (SD), the difference, the standardized
+    difference (Cohen's d = difference / pooled SD) with its size (|d| < 0.2 negligible, 0.2-0.5 small,
+    0.5-0.8 medium, >= 0.8 large; Cohen 1988), and the p-value of a Welch t-test (unequal variances), also
+    FDR-corrected over all regions (Benjamini-Hochberg). With many people even a tiny difference has a small p:
+    p says whether a difference is real, d how big it is."""
     rows = []
     for region in region_order(training):
         a, b = new[region].dropna(), training[region].dropna()
@@ -317,8 +330,13 @@ def region_comparison(new, training):
         rows.append({"region": region, "test mean": a.mean(), "test SD": a.std(), "training mean": b.mean(),
                      "training SD": b.std(), "difference (test - training)": a.mean() - b.mean(), "Cohen's d": d,
                      "size of difference": "large" if abs(d) >= 0.8 else "medium" if abs(d) >= 0.5 else
-                                           "small" if abs(d) >= 0.2 else "negligible"})
-    return pd.DataFrame(rows).set_index("region").round(3)
+                                           "small" if abs(d) >= 0.2 else "negligible",
+                     "p (Welch t-test)": ttest_ind(a, b, equal_var=False).pvalue})
+    table = pd.DataFrame(rows).set_index("region")
+    table["p (FDR-corrected)"] = multipletests(table["p (Welch t-test)"], method="fdr_bh")[1]
+    p_columns = ["p (Welch t-test)", "p (FDR-corrected)"]
+    table[p_columns] = table[p_columns].map(lambda p: float(f"{p:.3g}"))
+    return table.round({c: 3 for c in table.columns if c not in p_columns and c != "size of difference"})
 
 
 def plot_region_comparison(table):
@@ -333,7 +351,7 @@ def plot_region_comparison(table):
                     color=color, label=label)
     ax.set_yticks(y, regions, fontsize=8)
     ax.invert_yaxis()
-    ax.set_xlabel("regional SUVR: dot = mean, line = mean ± 1 SD")
+    ax.set_xlabel("regional SUVR")
     ax.legend(loc="lower right", fontsize=8, frameon=False)
     fig.tight_layout()
     return fig
@@ -347,8 +365,9 @@ def plot_region_heatmaps(new, training, limits):
     for ax, table, title in ((axes[0], new, f"test data (n = {len(new)})"),
                              (axes[1], training, f"training cohort (n = {len(training)})")):
         rows = table[order].mean(axis=1).sort_values().index
-        image = ax.imshow(table.loc[rows, order].to_numpy(float), aspect="auto", cmap=HEAT_CMAP, vmin=limits[0],
-                          vmax=limits[1], interpolation="nearest")
+        cmap, norm = heatmap_scale(limits)
+        image = ax.imshow(table.loc[rows, order].to_numpy(float), aspect="auto", cmap=cmap, norm=norm,
+                          interpolation="nearest")
         ax.set_xticks(range(len(order)), order, rotation=90, fontsize=5)
         ax.set_yticks([])
         ax.set_title(title)

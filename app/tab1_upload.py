@@ -37,15 +37,17 @@ HELP = {
               "of a region (e.g. CTX_LH_ENTORHINAL) are still recognized, but shown as a warning.",
     "region_heat": "Every region the model uses (columns) for every person (rows), as in the original analysis "
                    "code: regions ordered by the training cohort's mean (highest left), people by their own mean "
-                   "(lowest at the top). Both heatmaps use the same colour scale (the training cohort's 1st-99th "
-                   "percentile), so similar data look alike. Move the mouse over your heatmap for the exact SUVR; the "
+                   "(lowest at the top). Both heatmaps use the same colour scale, white (low SUVR) to blue to black "
+                   "(high), from the training cohort's 1st to 99th percentile, so similar data look alike. Move the mouse over your heatmap for the exact SUVR; the "
                    "training cohort's individual values are not shown.",
     "region_compare": "Each region: dot = the mean SUVR of all people, line = mean minus to mean plus one standard "
                       "deviation (SD), where about two thirds of the people lie. Teal = test data, orange = the training "
-                      "cohort. The table adds the difference and Cohen's d (difference / pooled SD): |d| < 0.2 "
-                      "negligible, 0.2-0.5 small, 0.5-0.8 medium, >= 0.8 large. Medium or large differences mean the "
-                      "test SUVRs may be on another scale (tracer, reference region, processing) - consider "
-                      "normalization method 2 or 3.",
+                      "cohort. The table adds the difference, Cohen's d (difference / pooled SD: |d| < 0.2 negligible, "
+                      "0.2-0.5 small, 0.5-0.8 medium, >= 0.8 large) and the p-value of a Welch t-test, also corrected "
+                      "for testing 64 regions (FDR). p says whether a difference is real, d how big it is - with many "
+                      "people even a tiny difference can be 'significant'. Medium or large differences mean the test "
+                      "SUVRs may be on another scale (tracer, reference region, processing) - consider normalization "
+                      "method 2 or 3.",
     "region_hist": "The distribution of each chosen region: filled = test data, outline = the training cohort, as % "
                    "of each group, so groups of different size compare. Six region pairs per row: the right "
                    "hemisphere above, its left partner right below (empty if not chosen). Two bumps are normal for "
