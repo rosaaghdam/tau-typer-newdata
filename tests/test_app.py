@@ -8,7 +8,7 @@ from conftest import APP, errors
 # test_server has no browser, so boxes the browser would fill in are set by hand (as the app starts)
 START = {"up_col_id": "filename", "up_col_cohort": "study", "up_col_age": "age", "up_col_sex": "sex",
          "up_col_diagnosis": "diagnosis", "up_col_amyloid": "amyloid",
-         "nm_method": "training", "nm_lobe": "L_MTL", "ap_cleanup": True, "ap_poor": 0.5, "ap_samples": 200,
+         "nm_method": "training", "nm_lobe": "L_MTL", "ap_cleanup": True, "ap_fp_threshold": 0.9, "ap_poor": 0.5, "ap_samples": 200,
          "rs_sd_limit": 1.0, "ap_run": 0, "cp_run": 0,
          "up_region_pick": ["ctx-lh-entorhinal", "ctx-rh-entorhinal"]}
 
@@ -38,7 +38,7 @@ def test_whole_app_with_the_example_data():
         ts.set_inputs(ap_run=1)                                  # step 3: apply the model
         ts.set_inputs(rs_sd_limit=1.5)                           # some outputs follow on the next update
         assert errors(ts) == {}
-        ok(ts, "ap_counts", "ap_pvd", "ap_events", "ap_person_plot", "ap_cleanup_plot", "ap_people", "rs_summary", "rs_patterns", "rs_boxes",
+        ok(ts, "ap_counts", "ap_pvd", "ap_events", "ap_cleanup_plot", "rs_person_plot", "rs_summary", "rs_patterns", "rs_boxes",
            "rs_brain", "rs_stages", "rs_stage_hist", "rs_probs", "rs_studies", "rs_study_table", "rs_clinical",
            "rp_note")
 

@@ -7,10 +7,11 @@ from shiny.types import SafeException
 from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.compare import group_counts
-from src.figures import plot_model_choice, plot_person, plot_pvd
+from src.figures import plot_model_choice, plot_pvd
 from src.figures_apply import plot_cleanup, plot_group_counts, plot_subtype_events
 from src.normalization import METHODS
-from src.trained_model import apply_model, clean_up, event_stages, label_table, tau_positive
+from src.scatter_html import cleanup_scatter_html
+from src.trained_model import apply_model, clean_up, cleanup_groups, event_stages, label_table, tau_positive
 
 MODEL = CONFIG["model"]
 N_SAVED = PACKAGE["n_mcmc_samples"]                  # pySuStaIn would only repeat samples beyond this
@@ -27,21 +28,25 @@ LIKELIHOOD_HELP = ("The trained models' MCMC, as pySuStaIn saved it (samples_lik
                    "subtypes. Left: mean log-likelihood per number of subtypes (higher = fits the training cohort "
                    "better, but it always rises with more subtypes). Right: the log-likelihood of every MCMC sample; "
                    "a flat line = the MCMC was stable. From the training, not from your data.")
-PERSON_HELP = ("One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
-               "stage group (dots), their probability of each subtype, and of each stage.")
 CLEANUP_INFO = ("Some people get a subtype from small z-score bumps that are not real tau. This check looks at the "
                 "entorhinal cortex and precuneus (both sides), where tau appears early. For each of these regions a "
-                "Gaussian mixture fitted on the TRAINING cohort gives each person's probability of abnormal tau. A "
-                "person with a subtype but no region above %g is set to S0 (stage 0). Untick to keep pySuStaIn's "
-                "result as it is." % MODEL["cleanup"]["threshold"])
+                "Gaussian mixture with 2 bell curves (normal, abnormal) fitted on the TRAINING cohort gives each "
+                "person's probability of belonging to the abnormal one. A person with a subtype but no region above "
+                "the threshold is set to S0 (stage 0). Untick to keep pySuStaIn's result as it is.")
+THRESHOLD_INFO = ("A region counts as abnormal when its probability of the abnormal bell curve is above this value. "
+                  "Reference pipeline: %g. Higher = stricter (more people set to S0)." % MODEL["cleanup"]["threshold"])
+SAMPLES_INFO = ("How many of the model's saved MCMC samples pySuStaIn uses to subtype and stage each person. At most "
+                f"{N_SAVED}: the number of samples saved in the trained model (more would only repeat them).")
 POOR_INFO = ("pySuStaIn gives every person a probability for each subtype (together they add up to 1), and the "
              "person gets the most likely one. If that highest probability is below this value, the person is "
              "marked 'poor fit'. Example: 0.1, 0.2, 0.4, 0.3 - the highest is 0.4, below 0.5, so poor fit. The "
              "person keeps the subtype (it is only flagged); S0 people are never flagged. Paper: 0.5.")
 COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
-CLEAN_HELP = ("False-positive check: for entorhinal and precuneus (both sides) a Gaussian mixture "
-              "fitted on the TRAINING cohort gives each person's probability of abnormal tau. People with a subtype "
-              "but no region above the threshold are set to S0 (stage 0).")
+CLEAN_HELP = ("False-positive check (entorhinal / precuneus): every dot is one person in one region. y = the probability "
+              "that the region's value belongs to the abnormal bell curve of a Gaussian mixture fitted on the "
+              "TRAINING cohort. Grey = S0 by the model (stage 0); teal = has a subtype and at least one region above "
+              "the threshold (kept); orange = has a subtype but no region above the threshold, so set to S0. Move "
+              "the mouse over a dot to see the person.")
 
 
 def info_button(title, text):
@@ -60,14 +65,17 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
         ui.output_ui("ap_method_note"),
         ui.div(ui.input_checkbox("ap_cleanup", "False-positive check (entorhinal / precuneus)", value=True),
                info_button("False-positive check", CLEANUP_INFO), class_="d-flex align-items-start gap-1"),
+        ui.div(ui.tags.label("False-positive check: threshold", **{"for": "ap_fp_threshold"}),
+               info_button("Threshold", THRESHOLD_INFO), class_="d-flex align-items-start gap-1 mb-1"),
+        ui.input_numeric("ap_fp_threshold", None, value=MODEL["cleanup"]["threshold"], min=0.5, max=0.99, step=0.01),
         ui.div(ui.tags.label("Poor fit: subtype probability below", **{"for": "ap_poor"}),
                info_button("Poor fit", POOR_INFO), class_="d-flex align-items-start gap-1 mb-1"),
         ui.input_numeric("ap_poor", None, value=MODEL["poor_fit_threshold"], min=0, max=1, step=0.05),
-        ui.input_numeric("ap_samples", "MCMC samples used", value=min(MODEL["n_samples"], N_SAVED), min=1,
-                         max=N_SAVED, step=1 if N_SAVED < 1000 else 100),
-        ui.p(f"At most {N_SAVED}: the number of samples saved in the trained model.", class_="small text-muted"),
+        ui.div(ui.tags.label("MCMC samples used", **{"for": "ap_samples"}),
+               info_button("MCMC samples used", SAMPLES_INFO), class_="d-flex align-items-start gap-1 mb-1"),
+        ui.input_numeric("ap_samples", None, value=min(MODEL["n_samples"], N_SAVED), min=1, max=N_SAVED,
+                         step=1 if N_SAVED < 1000 else 100),
         ui.input_action_button("ap_run", "Apply the model", class_="btn-primary w-100"),
-        ui.p("Nothing is trained: the saved model is only read.", class_="small text-muted mt-2"),
         width=330, open="always"),
     ui.output_ui("ap_model_info"),
     ui.output_ui("ap_result_note"),
@@ -87,21 +95,18 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
                                  figure_tools("ap_counts")),
                      ui.output_data_frame("ap_counts_table"), table_tools("ap_counts_csv")),
         ui.nav_panel("Cleanup", ui.output_ui("ap_cleanup_note"),
-                     figure_card("Tau-positivity check", CLEAN_HELP, ui.output_image("ap_cleanup_plot", height="auto"),
-                                 figure_tools("ap_cleanup_fig"))),
-        ui.nav_panel("Per person",
-                     figure_card("One person", PERSON_HELP, ui.input_selectize("ap_person", "Person", choices=[]),
-                                 ui.output_image("ap_person_plot", height="auto"), figure_tools("ap_person")),
-                     ui.h6("All people", class_="mt-3"),
-                     ui.output_data_frame("ap_people"), table_tools("ap_people_csv")))))
+                     figure_card("False-positive check (entorhinal / precuneus)", CLEAN_HELP,
+                                 ui.output_ui("ap_cleanup_plot"), figure_tools("ap_cleanup_fig"))))))
 
 
 def server(input, output, session, shared):
     report_items = shared["report_items"]
     result = reactive.value(None)
 
-    def run_method(method, cleanup, n_samples, poor_fit):
-        """Normalize with one method and apply the model. Returns a dict (see the keys below)."""
+    def run_method(method, cleanup, n_samples, poor_fit, fp_threshold=None):
+        """Normalize with one method and apply the model. Returns a dict (see the keys below).
+        fp_threshold: the false-positive check's threshold (None = config.yaml's)."""
+        fp_threshold = MODEL["cleanup"]["threshold"] if fp_threshold is None else float(fp_threshold)
         n_samples = max(1, min(int(n_samples), N_SAVED))    # never more than the model has saved
         norm = shared["normalize_with"](method)
         z = norm["z"][~norm["left_out"]]
@@ -114,7 +119,7 @@ def server(input, output, session, shared):
                 notes.append("The cleanup regions are not all in the data - cleanup skipped.")
             else:
                 p, tau_pos, cleanup_notes = tau_positive(shared["regional"]().loc[z.index], PACKAGE["reference"],
-                                                         MODEL["cleanup"]["regions"], MODEL["cleanup"]["threshold"],
+                                                         MODEL["cleanup"]["regions"], fp_threshold,
                                                          MODEL["gmm"])
                 notes += cleanup_notes
                 table = clean_up(table, tau_pos)
@@ -122,7 +127,7 @@ def server(input, output, session, shared):
         return {"method": method, "table": table, "prob_subtype": prob_subtype, "prob_stage": prob_stage, "z": z,
                 "p_cleanup": p,
                 "cleaned": p is not None, "notes": notes, "left_out": list(norm["z"].index[norm["left_out"]]),
-                "n_samples": n_samples}
+                "n_samples": n_samples, "fp_threshold": fp_threshold}
 
     shared["run_method"] = run_method
     shared["result"] = result
@@ -135,7 +140,8 @@ def server(input, output, session, shared):
                 progress.set(0.3, message="Applying the trained model ...", detail="pySuStaIn, no training")
                 result.set(run_method(shared["norm_method"](), bool(input.ap_cleanup()),
                                       int(input.ap_samples() or 1000),
-                                      float(input.ap_poor() if input.ap_poor() is not None else 0.5)))
+                                      float(input.ap_poor() if input.ap_poor() is not None else 0.5),
+                                      input.ap_fp_threshold()))
         except Exception as error:
             ui.notification_show(f"Could not apply the model: {error}", type="error", duration=10)
 
@@ -155,24 +161,16 @@ def server(input, output, session, shared):
 
     @render.ui
     def ap_method_note():
-        return ui.p(ui.strong("Normalization: "), METHODS[shared["norm_method"]()], " (change it in step 2).",
-                    class_="small")
+        return ui.div(ui.div("Normalization", class_="fw-bold", style="font-size:1.1rem;"),
+                      ui.div(METHODS[shared["norm_method"]()]),
+                      ui.div("(change it in step 2)", class_="small text-muted"), class_="mb-3")
 
     @render.ui
     def ap_model_info():
-        stand_in = ui.div(ui.strong("Test model: "), "the app is using a simulated model, so these subtypes and "
-                          "stages are only for testing the app. The trained model will replace it.",
-                          class_="alert alert-warning") \
-            if MODEL.get("is_stand_in") else None
-        z_max = ", ".join(f"{v:g}" for v in PACKAGE["Z_max"])
-        return ui.TagList(stand_in, ui.div(
+        return ui.TagList(ui.div(
             tile(PACKAGE["n_subtypes"], "subtypes"), tile(PACKAGE["n_events"], "events (stages 0-%d)" % PACKAGE["n_events"]),
             tile(len(PACKAGE["lobes"]), "lobes"), tile(PACKAGE["n_mcmc_samples"], "saved MCMC samples"),
-            class_="tt-summary"),
-            ui.p(f"Lobe order of the model (fixed; your columns are matched by name): "
-                 f"{', '.join(PACKAGE['lobes'])}. "
-                 f"Cut-points z = {', '.join(f'{v:g}' for v in PACKAGE['Z_vals'][0])}; Z_max = {z_max}. "
-                 f"Model files: {PACKAGE['folder']}.", class_="small text-muted"))
+            class_="tt-summary"))
 
     @render.ui
     def ap_result_note():
@@ -262,57 +260,29 @@ def server(input, output, session, shared):
 
     add_figure(report_items, "ap_likelihood", "MCMC log-likelihood of the trained models", make_likelihood)
 
-    @reactive.effect
-    def _person_choices():
-        """Tau+ people first (the first one shown), then the S0 people."""
-        res = result()
-        if res is None:
-            ui.update_selectize("ap_person", choices=[], selected=None)
-            return
-        table = res["table"]
-        people = list(table.index[table["ml_stage"] > 0]) + list(table.index[table["ml_stage"] == 0])
-        ui.update_selectize("ap_person", choices=people, selected=people[0] if people else None)
-
-    def make_person():
-        res = result()
-        person = optional_input(input, "ap_person")
-        if res is None or not person or person not in res["table"].index:
-            raise SafeException("Apply the model and choose a person.")
-        table, z = res["table"], res["z"]
-        group = pd.cut(table["ml_stage"], CONFIG["results"]["stage_edges"], right=False)
-        same = (table["subtype_number"] == table.loc[person, "subtype_number"]) & (group == group[person])
-        expected = z[same].mean() if table.loc[person, "ml_stage"] > 0 else None
-        i = table.index.get_loc(person)
-        return plot_person(person, z.loc[person], PACKAGE["lobes"], expected, res["prob_subtype"][i],
-                           res["prob_stage"][i], SUBTYPE_NAMES)
-
-    @render.image
-    def ap_person_plot():
-        res, person = result(), optional_input(input, "ap_person")
-        return as_picture(make_person()) if res is not None and person in res["table"].index else None
-
-    add_figure(report_items, "ap_person", "One person", make_person)
-
     @render.ui
     def ap_cleanup_note():
         res = result()
         if res is None or not res["cleaned"]:
             return ui.p("Cleanup not applied.", class_="text-muted") if res is not None else None
         return ui.p(f"{int(res['table']['cleaned'].sum())} people had a subtype but no region above "
-                    f"{MODEL['cleanup']['threshold']}: set to S0.", class_="fw-bold")
+                    f"{res['fp_threshold']:g}: set to S0.", class_="fw-bold")
 
     def make_cleanup():
         res = result()
         if res is None or res["p_cleanup"] is None:
             raise SafeException("The cleanup was not applied.")
-        return plot_cleanup(res["p_cleanup"], MODEL["cleanup"]["threshold"])
+        return plot_cleanup(res["p_cleanup"], res["fp_threshold"], cleanup_groups(res["table"]))
 
-    @render.image
+    @render.ui
     def ap_cleanup_plot():
+        """On the page: drawn by the browser, with the person under the mouse (PNG/PDF: the same in matplotlib)."""
         res = result()
-        return None if res is None or res["p_cleanup"] is None else as_picture(make_cleanup())
+        if res is None or res["p_cleanup"] is None:
+            return None
+        return ui.HTML(cleanup_scatter_html(res["p_cleanup"], res["fp_threshold"], cleanup_groups(res["table"])))
 
-    add_figure(report_items, "ap_cleanup_fig", "Tau-positivity check", make_cleanup)
+    add_figure(report_items, "ap_cleanup_fig", "False-positive check (entorhinal / precuneus)", make_cleanup)
 
     def people():
         res = result()
@@ -323,13 +293,4 @@ def server(input, output, session, shared):
         table = table[front + [c for c in table.columns if c not in front]]
         return table.join(res["z"].add_prefix("z_"))
 
-    @render.data_frame
-    def ap_people():
-        if result() is None:
-            return None
-        table = people().copy()
-        numbers = table.select_dtypes("number").columns
-        table[numbers] = table[numbers].round(3)
-        return render.DataGrid(table.reset_index(), height="520px", filters=True)
-
-    add_table(report_items, "ap_people_csv", "Results per person", people, in_report=True)
+    add_table(report_items, "ap_people_csv", "Results per person", people, in_report=True)   # in the report only

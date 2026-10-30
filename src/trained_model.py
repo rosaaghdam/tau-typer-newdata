@@ -179,6 +179,17 @@ def clean_up(table, tau_pos):
     return table
 
 
+def cleanup_groups(table):
+    """Each person's group in the false-positive check: "S0" (stage 0 by the model), "kept" (a subtype and at least
+    one region above the threshold) or "set to S0" (a subtype but no region above the threshold)."""
+    before = table["stage_before_cleanup"] if "stage_before_cleanup" in table else table["ml_stage"]
+    groups = pd.Series("kept", index=table.index)
+    groups[before == 0] = "S0"
+    if "cleaned" in table:
+        groups[table["cleaned"].astype(bool)] = "set to S0"
+    return groups
+
+
 def label_table(table, names, poor_fit_threshold):
     """Readable columns: subtype ("S0" or the subtype's name) and poor_fit (tau+ but subtype probability
     below the threshold - paper: 0.5)."""

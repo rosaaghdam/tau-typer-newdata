@@ -74,7 +74,8 @@ def server(input, output, session, shared):
                     progress.set(i, message=f"Applying the model: {METHODS[method]}")
                     done[method] = shared["run_method"](method, bool(input.ap_cleanup()),
                                                         int(input.ap_samples() or 1000),
-                                                        float(input.ap_poor() if input.ap_poor() is not None else 0.5))
+                                                        float(input.ap_poor() if input.ap_poor() is not None else 0.5),
+                                                        input.ap_fp_threshold())
         except Exception as error:
             ui.notification_show(f"Could not apply the model: {error}", type="error", duration=10)
             return

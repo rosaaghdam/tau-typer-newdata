@@ -335,18 +335,40 @@ def plot_normal_values(tables, lobes):
     return fig
 
 
-def plot_cleanup(p, threshold):
-    """P(abnormal) of each cleanup region for every person (dots), threshold dashed: a person is tau+ if
-    at least one region is above it."""
-    fig, ax = plt.subplots(figsize=(1.6 * p.shape[1] + 2.5, 3.8))
-    rng = np.random.default_rng(0)
-    for i, roi in enumerate(p.columns):
-        ax.scatter(i + rng.uniform(-0.25, 0.25, len(p)), p[roi], s=8, alpha=0.5, color=NEW_COLOR)
+CLEANUP_GROUPS = {"S0": ("S0 by the model (stage 0)", S0_COLOR), "kept": ("subtype, kept", NEW_COLOR),
+                  "set to S0": ("subtype, set to S0 by the check", TRAINING_COLOR)}
+CLEANUP_YLABEL = "P(abnormal bell curve)"
+
+
+def short_region(name):
+    """ctx-lh-entorhinal -> "L entorhinal" (other names unchanged)."""
+    for code, side in (("-lh-", "L "), ("-rh-", "R ")):
+        if code in name:
+            return side + name.split(code, 1)[1]
+    return name
+
+
+def cleanup_jitter(n_people, n_regions, seed=0):
+    """The same small left-right offsets for the dots in the PNG and on the page (people x regions)."""
+    return np.random.default_rng(seed).uniform(-0.25, 0.25, (n_people, n_regions))
+
+
+def plot_cleanup(p, threshold, groups=None):
+    """False-positive check: each person's probability of the abnormal bell curve in each cleanup region (dots),
+    coloured by group (S0 / kept / set to S0, see CLEANUP_GROUPS); dashed = the threshold."""
+    fig, ax = plt.subplots(figsize=(1.8 * p.shape[1] + 3.2, 3.8))
+    groups = pd.Series("kept", index=p.index) if groups is None else groups.reindex(p.index)
+    jitter = cleanup_jitter(len(p), p.shape[1])
+    for key, (label, shade) in CLEANUP_GROUPS.items():
+        rows = np.flatnonzero((groups == key).to_numpy())
+        for i, roi in enumerate(p.columns):
+            ax.scatter(i + jitter[rows, i], p[roi].to_numpy()[rows], s=10, alpha=0.6, color=shade,
+                       label=f"{label} (n = {len(rows)})" if i == 0 else None)
     ax.axhline(threshold, ls="--", color="#C62828", lw=1.2, label=f"threshold {threshold:g}")
-    ax.set_xticks(range(p.shape[1]), [c.replace("ctx-", "") for c in p.columns], rotation=20, ha="right")
-    ax.set_ylabel("P(abnormal tau)")
+    ax.set_xticks(range(p.shape[1]), [short_region(c) for c in p.columns])
+    ax.set_ylabel(CLEANUP_YLABEL)
     ax.set_ylim(-0.03, 1.03)
-    ax.legend(loc="center right")
+    ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), frameon=False, fontsize=8)
     fig.tight_layout()
     return fig
 

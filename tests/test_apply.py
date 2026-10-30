@@ -171,3 +171,11 @@ def test_event_stages_put_every_event_once(package):
     for table in events.values():
         assert list(table.index) == package["lobes"] and table.notna().sum().sum() == package["n_events"]
         assert sorted(table.stack()) == list(range(1, package["n_events"] + 1))
+
+
+def test_cleanup_groups():
+    """cleanup_groups: S0 by the model, kept (a subtype and tau+), or set to S0 by the check."""
+    from src.trained_model import cleanup_groups
+    table = pd.DataFrame({"subtype_number": [0, 2, 1], "ml_stage": [0, 5, 3]}, index=["a", "b", "c"])
+    cleaned = clean_up(table, pd.Series([False, True, False], index=table.index))
+    assert list(cleanup_groups(cleaned)) == ["S0", "kept", "set to S0"]

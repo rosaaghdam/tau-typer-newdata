@@ -629,11 +629,11 @@ def plot_person(person, z_person, regions, expected, prob_subtype, prob_stage, s
     ax1.bar(range(len(regions)), z_person[regions], color="#4C72B0", label=person)
     if expected is not None:
         ax1.plot(range(len(regions)), expected[regions], "o", color="black", label="average of subtype + stage group")
-    ax1.set_xticks(range(len(regions)), regions, rotation=45, ha="right")
+    ax1.set_xticks(range(len(regions)), [r.replace("_", "\n") for r in regions], fontsize=8)    # "L\nMTL": flat
     ax1.set_ylabel("z-score")
     ax1.legend(fontsize=8)
     ax2.bar(range(k), prob_subtype, color=subtype_colors(k, colors))
-    ax2.set_xticks(range(k), subtype_titles, rotation=45, ha="right")
+    ax2.set_xticks(range(k), [t.replace(" ", "\n") for t in subtype_titles], fontsize=8)
     ax2.set_ylim(0, 1)
     ax2.set_ylabel("subtype probability")
     ax3.bar(range(len(prob_stage)), prob_stage / prob_stage.sum(), color="gray")

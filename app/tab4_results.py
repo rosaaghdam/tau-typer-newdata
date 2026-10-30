@@ -1,12 +1,12 @@
 """Tab 4 - Results: explore the subtypes and stages found by the trained model."""
 import pandas as pd
-from shiny import render, ui
+from shiny import reactive, render, ui
 from shiny.types import SafeException
 
-from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, add_figure, add_table, as_picture, figure_card, figure_tools,
+from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.brain import plot_brain_figure
-from src.figures import plot_cohort_subtypes, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
+from src.figures import plot_cohort_subtypes, plot_person, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
 from src.figures_apply import plot_lobe_boxplots, plot_stage_histograms, score_cmap
 from src.results import subtype_summary
 
@@ -24,6 +24,8 @@ HELP = {
     "stage_hist": "The stages of each subtype's people.",
     "probs": "How clearly each tau+ person belongs to one subtype: each corner is a subtype; close to a corner = "
              "clearly that subtype, towards the middle = a mix.",
+    "person": "One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
+              "stage group (dots), their probability of each subtype, and of each stage.",
     "studies": "% of each study's people in S0 and each subtype. A subtype found in one study "
                "only may be a scanner or processing effect.",
 }
@@ -45,6 +47,9 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(ui.output_ui(
                              figure_tools("rs_stage_hist"))),
     ui.nav_panel("Probabilities", figure_card("Subtype probabilities", HELP["probs"],
                                               ui.output_image("rs_probs", height="auto"), figure_tools("rs_probs"))),
+    ui.nav_panel("Per person", figure_card("One person", HELP["person"],
+                                           ui.input_selectize("rs_person", "Person", choices=[]),
+                                           ui.output_image("rs_person_plot", height="auto"), figure_tools("rs_person"))),
     ui.nav_panel("Per study", ui.output_ui("rs_study_note"),
                  figure_card("Subtypes per study", HELP["studies"], ui.output_image("rs_studies", height="auto"),
                              figure_tools("rs_studies")),
@@ -213,3 +218,34 @@ def server(input, output, session, shared):
         return render.DataGrid(clinical().reset_index()) if shown() else None
 
     add_table(report_items, "rs_clinical_csv", "Clinical summary per group", clinical, in_report=True)
+
+    @reactive.effect
+    def _person_choices():
+        """Tau+ people first (the first one shown), then the S0 people."""
+        res = result()
+        if res is None:
+            ui.update_selectize("rs_person", choices=[], selected=None)
+            return
+        table = res["table"]
+        people = list(table.index[table["ml_stage"] > 0]) + list(table.index[table["ml_stage"] == 0])
+        ui.update_selectize("rs_person", choices=people, selected=people[0] if people else None)
+
+    def make_person():
+        res = result()
+        person = optional_input(input, "rs_person")
+        if res is None or not person or person not in res["table"].index:
+            raise SafeException("Apply the model and choose a person.")
+        table, z = res["table"], res["z"]
+        group = pd.cut(table["ml_stage"], CONFIG["results"]["stage_edges"], right=False)
+        same = (table["subtype_number"] == table.loc[person, "subtype_number"]) & (group == group[person])
+        expected = z[same].mean() if table.loc[person, "ml_stage"] > 0 else None
+        i = table.index.get_loc(person)
+        return plot_person(person, z.loc[person], PACKAGE["lobes"], expected, res["prob_subtype"][i],
+                           res["prob_stage"][i], SUBTYPE_NAMES)
+
+    @render.image
+    def rs_person_plot():
+        res, person = result(), optional_input(input, "rs_person")
+        return as_picture(make_person()) if res is not None and person in res["table"].index else None
+
+    add_figure(report_items, "rs_person", "One person", make_person)
