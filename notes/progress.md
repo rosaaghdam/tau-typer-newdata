@@ -1051,3 +1051,7 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
   with the fixed trained model.
 - Removed the "Methods explained" tab and the per-method help texts (Rosa's request).
 - Next: save named runs and compare them (agreement, stage differences, probabilities, share at S0, overlap).
+- Added (Rosa's request) method 4: W-score adjusted for choroid plexus against the WHOLE training cohort, exactly the
+  original notebook's W_Transform with Choroid_tot (cell 17; tried there, not used for its final result). Equal to
+  W_Transform to ~4e-15. "Already z-scores" is now method 5. Template: optional Left-/Right-Choroid-Plexus columns.
+  Example data: 110 of 530 people reach W >= 2 (method 1: 257) - the normal group includes tau+ people, so the SD is larger.

@@ -11,6 +11,8 @@ OTHER_COLUMNS = [
     ("sex", "no", "F or M", "F"),
     ("diagnosis", "no", "clinical diagnosis, e.g. CN, SCD, MCI, AD", "CN"),
     ("amyloid", "no", "amyloid status: positive / negative (or 1 / 0)", "negative"),
+    ("Left-Choroid-Plexus", "no", "choroid-plexus SUVR (normalization method 4)", "1.30"),
+    ("Right-Choroid-Plexus", "no", "choroid-plexus SUVR (normalization method 4)", "1.28"),
 ]
 
 

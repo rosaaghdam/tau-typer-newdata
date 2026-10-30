@@ -33,7 +33,7 @@ Then open the address it prints (usually http://127.0.0.1:8000).
 | Step | What happens |
 |---|---|
 | 1. Upload & QC | Upload regional tau-PET data in the template's format (see *Input format* below). Column names are matched to the model's regions whatever their spelling (`ctx-lh-entorhinal`, `CTX_LH_ENTORHINAL`, `entorhinal_L`); regions not found can be chosen by hand. Choose ID / study / clinical columns, filter studies or diagnoses, QC, the 10 lobes vs the training data, demographics. |
-| 2. Normalize | z-scores on the model's scale; the methods differ only in the baseline (where 'normal' comes from): 1 the reference pipeline (training cohort's GMM normal, the benchmark), 2 a GMM normal of your own data, 3 your amyloid-negative CN people, 4 values already z-scores. Normal table, GMM fits, z-score figures. |
+| 2. Normalize | z-scores on the model's scale: 1 the reference pipeline (training cohort's GMM normal, the benchmark), 2 a GMM normal of your own data, 3 your amyloid-negative CN people, 4 a W-score adjusted for choroid plexus against the training cohort, 5 values already z-scores. Normal table, GMM fits, z-score figures. |
 | 3. Apply model | The saved model gives each person a subtype, stage and probabilities (stage 0 = S0). Optional false-positive cleanup (entorhinal / precuneus). The model's PVD, per-person table. |
 | 4. Results | Tau pattern per subtype, lobes per subtype, the brain (Vogel Fig. 1c/1e), stages and their certainty, subtype probabilities, subtypes per study, clinical summary. |
 | 5. Compare | The model applied after every normalization method, side by side, and against known labels (the simulated truth, or your own labels file): counts, agreement, adjusted Rand index, two-result cross-tables. |
@@ -64,6 +64,8 @@ scan and upload it. The template always lists exactly the regions the loaded mod
 | `sex` | no | F or M | F |
 | `diagnosis` | no | clinical diagnosis, e.g. CN, SCD, MCI, AD | CN |
 | `amyloid` | no | amyloid status: positive / negative (or 1 / 0) | negative |
+| `Left-Choroid-Plexus` | no | choroid-plexus SUVR (normalization method 4) | 1.30 |
+| `Right-Choroid-Plexus` | no | choroid-plexus SUVR (normalization method 4) | 1.28 |
 
 **Region columns** (all required; each lobe is the mean of its regions)
 

@@ -101,7 +101,7 @@ def server(input, output, session, shared):
     def normal_table():
         table = normalized()["normals"]
         if table is None:
-            raise SafeException("Method 4 uses your values as they are - there is no normal reference.")
+            raise SafeException("Method 5 uses your values as they are - there is no normal reference.")
         return table
 
     @render.data_frame

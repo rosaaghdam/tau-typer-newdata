@@ -60,7 +60,7 @@ def test_cleanup_sets_tau_negative_people_to_s0(package, new):
 
 def test_every_normalization_method_runs(package, new):
     lobes = lobe_values(new, package["regions"])
-    for method in ("own_gmm", "reference", "zscored"):
+    for method in ("own_gmm", "reference", "choroid", "zscored"):
         z, normals, _, _ = normalize(method, lobes, package, CFG["gmm"], data=new,
                                      columns={"diagnosis": "diagnosis", "amyloid": "amyloid"}, cn_labels=["CN"])
         assert z.shape == (len(new), 10) and z.notna().all().all()
@@ -110,11 +110,25 @@ def test_input_template_and_format_check(package):
     example data and reports the regions missing from the renamed test file."""
     fmt = input_format(required_regions(package, CFG["cleanup"]["regions"]))
     template = template_table(fmt)
-    assert template.shape == (1, 70) and template.columns[0] == "subject_id"
-    regions = fmt.loc[6:, "column"].tolist()
+    assert template.shape == (1, 72) and template.columns[0] == "subject_id"
+    regions = fmt.loc[8:, "column"].tolist()
     example = pd.read_csv(SIM / "df_sustain_true.csv")
     assert set(check_format(example, match_regions(list(example.columns), regions), "filename")["Level"]) == {"OK"}
     renamed = pd.read_csv(SIM / "test_newuser.csv")
     checks = check_format(renamed, match_regions(list(renamed.columns), regions), "Subject")
     assert checks["Level"].tolist() == ["error", "warning", "OK"]
     assert "Left-Hippocampus" in checks.loc[0, "Details"]
+
+
+def test_choroid_w_score_is_the_notebooks_regression(package, new):
+    """Method 4 = (lobe - (a + b x choroid)) / residual SD, with a and b fitted on the whole training cohort
+    (the original notebook's W_Transform with Choroid_tot) - checked against statsmodels."""
+    import statsmodels.formula.api as smf
+    w = normalize("choroid", lobe_values(new, package["regions"]), package, CFG["gmm"], data=new)[0]
+    train = lobe_values(package["reference"], package["regions"]).assign(
+        Choroid_tot=package["reference"][["Left-Choroid-Plexus", "Right-Choroid-Plexus"]].mean(axis=1))
+    fit = smf.ols("L_MTL ~ Choroid_tot", data=train).fit()
+    choroid = new[["Left-Choroid-Plexus", "Right-Choroid-Plexus"]].mean(axis=1)
+    expected = (lobe_values(new, package["regions"])["L_MTL"] - fit.predict(pd.DataFrame({"Choroid_tot": choroid}))) \
+        / fit.resid.std()
+    assert np.allclose(w["L_MTL"], expected)

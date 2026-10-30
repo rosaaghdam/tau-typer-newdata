@@ -66,7 +66,7 @@ def server(input, output, session, shared):
         if shared["lobes"]() is None:
             ui.notification_show("Finish step 1 (Upload & QC) first.", type="warning", duration=8)
             return
-        methods = available_methods(shared["columns"](), shared["data"](), cn_labels())
+        methods = available_methods(shared["columns"](), shared["data"](), cn_labels(), PACKAGE)
         done = {}
         try:                                   # an error here must not stop the app: show it as a message
             with ui.Progress(min=0, max=len(methods)) as progress:
@@ -147,7 +147,8 @@ def server(input, output, session, shared):
             return ui.div("Finish step 1 first.", class_="alert alert-info")
         if not runs():
             return ui.div("Press 'Apply the model with every method' (left). Methods 1 and 2 always run; 3 needs "
-                          "diagnosis and amyloid columns with at least 10 amyloid-negative CN people.",
+                          "diagnosis and amyloid columns with at least 10 amyloid-negative CN people; 4 needs the "
+                          "choroid-plexus columns.",
                           class_="alert alert-info")
         return ui.p("Results: " + ", ".join(everything()), class_="fw-bold")
 
