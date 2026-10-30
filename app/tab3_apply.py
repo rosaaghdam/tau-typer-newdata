@@ -122,7 +122,9 @@ def server(input, output, session, shared):
             tile(PACKAGE["n_subtypes"], "subtypes"), tile(PACKAGE["n_events"], "events (stages 0-%d)" % PACKAGE["n_events"]),
             tile(len(PACKAGE["lobes"]), "lobes"), tile(PACKAGE["n_mcmc_samples"], "saved MCMC samples"),
             class_="tt-summary"),
-            ui.p(f"Cut-points z = {', '.join(f'{v:g}' for v in PACKAGE['Z_vals'][0])}; Z_max = {z_max}. "
+            ui.p(f"Lobe order of the model (fixed; your columns are matched by name): "
+                 f"{', '.join(PACKAGE['lobes'])}. "
+                 f"Cut-points z = {', '.join(f'{v:g}' for v in PACKAGE['Z_vals'][0])}; Z_max = {z_max}. "
                  f"Model files: {PACKAGE['folder']}.", class_="small text-muted"))
 
     @render.ui

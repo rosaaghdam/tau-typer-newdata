@@ -132,3 +132,17 @@ def test_choroid_w_score_is_the_notebooks_regression(package, new):
     expected = (lobe_values(new, package["regions"])["L_MTL"] - fit.predict(pd.DataFrame({"Choroid_tot": choroid}))) \
         / fit.resid.std()
     assert np.allclose(w["L_MTL"], expected)
+
+
+def test_lobe_order_is_fixed_by_the_model(package, new):
+    """pySuStaIn knows the lobes only by position, so the data must be in the model's biomarker order. The app
+    selects the lobes by name: any column order gives the same result, while a wrong order would not."""
+    z, _, _, _ = normalize("training", lobe_values(new, package["regions"]), package, CFG["gmm"])
+    right, _ = apply_model(z, package, CFG["n_samples"])
+    shuffled, _ = apply_model(z[np.random.default_rng(0).permutation(package["lobes"])], package, CFG["n_samples"])
+    assert right.equals(shuffled)
+    wrong = z[package["lobes"][::-1]].copy()
+    wrong.columns = package["lobes"]                       # values handed over in the reversed order
+    assert (apply_model(wrong, package, CFG["n_samples"])[0]["subtype_number"] != right["subtype_number"]).any()
+    assert package["lobes"] == ["L_MTL", "R_MTL", "L_Temporal", "R_Temporal", "L_Parietal", "R_Parietal",
+                                "L_Occipital", "R_Occipital", "L_Frontal", "R_Frontal"]   # as the original notebook

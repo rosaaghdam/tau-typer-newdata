@@ -1055,3 +1055,12 @@ SuStaIn input (+ downloads). Still open: "settings changed, click Normalize agai
   original notebook's W_Transform with Choroid_tot (cell 17; tried there, not used for its final result). Equal to
   W_Transform to ~4e-15. "Already z-scores" is now method 5. Template: optional Left-/Right-Choroid-Plexus columns.
   Example data: 110 of 530 people reach W >= 2 (method 1: 257) - the normal group includes tau+ people, so the SD is larger.
+
+## 2026-10-30 - Lobe order
+- pySuStaIn knows the 10 lobes only by POSITION: the data must be in the model's biomarker order. Wrong order on the
+  example data: left/right swapped -> 35 of 530 other subtypes, reversed -> 212.
+- The order comes from the model's settings file (biomarker_order) = the original notebook's Lobes: L/R MTL,
+  Temporal, Parietal, Occipital, Frontal; Z_max 10, 10, then 20 x 8. The app picks the lobes by NAME, so the
+  uploaded column order does not matter (test_lobe_order_is_fixed_by_the_model). Step 3 shows the order.
+- Open question for the model's author: confirm the real model's biomarker order and Z_max (the settings file is not
+  yet verified by the model owner).
