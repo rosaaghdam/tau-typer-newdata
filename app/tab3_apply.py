@@ -9,10 +9,9 @@ from common import (CONFIG, PACKAGE, ROOT, SUBTYPE_NAMES, optional_input, add_fi
 from src.compare import group_counts
 from src.brain3d import picture_figure, trajectory_png
 from src.figures import plot_model_choice, plot_pvd
-from src.figures_apply import plot_cleanup, plot_group_counts, plot_subtype_events
+from src.figures_apply import plot_cleanup_bars, plot_group_counts, plot_scan_check, plot_subtype_events
 from src.normalization import METHODS
-from src.scatter_html import cleanup_scatter_html
-from src.trained_model import apply_model, clean_up, cleanup_groups, event_stages, label_table, tau_positive
+from src.trained_model import apply_model, clean_up, cleanup_summary, event_stages, label_table, tau_positive
 
 MODEL = CONFIG["model"]
 N_SAVED = PACKAGE["n_mcmc_samples"]                  # pySuStaIn would only repeat samples beyond this
@@ -34,13 +33,12 @@ BRAIN_HELP = ("One learned subtype on 3D brains (left and right, outside and ins
               "(grey = not yet; light blue z 2, blue z 5, dark blue z 10; white = regions in no lobe of the model). "
               "Hippocampus and amygdala (part of MTL) lie inside the brain and are not drawn - the entorhinal cortex "
               "shows MTL. Drawn with yabplot the first time (~10 s), then kept.")
-CLEANUP_INFO = ("Some people get a subtype from small z-score bumps that are not real tau. This check looks at the "
-                "entorhinal cortex and precuneus (both sides), where tau appears early. For each of these regions a "
-                "Gaussian mixture with 2 bell curves (normal, abnormal) fitted on the TRAINING cohort gives each "
-                "person's probability of belonging to the abnormal one. A person with a subtype but no region above "
-                "the threshold is set to S0 (stage 0). Untick to keep pySuStaIn's result as it is.")
-THRESHOLD_INFO = ("A region counts as abnormal when its probability of the abnormal bell curve is above this value. "
-                  "Reference pipeline: %g. Higher = stricter (more people set to S0)." % MODEL["cleanup"]["threshold"])
+RULE = ("A positive assignment is retained if at least one of four ROI high-signal probabilities exceeds the "
+        "threshold (reference pipeline: %g)." % MODEL["cleanup"]["threshold"])
+CLEANUP_INFO = (RULE + " The four ROIs are the left and right entorhinal cortex and precuneus; each probability comes "
+                "from a 2-component Gaussian mixture fitted on the training cohort. Untick to keep pySuStaIn's "
+                "assignments unchanged.")
+THRESHOLD_INFO = RULE + " Higher = stricter (more assignments reset to S0)."
 SAMPLES_INFO = ("How many of the model's saved MCMC samples pySuStaIn uses to subtype and stage each person. At most "
                 f"{N_SAVED}: the number of samples saved in the trained model (more would only repeat them).")
 POOR_INFO = ("pySuStaIn gives every person a probability for each subtype (together they add up to 1), and the "
@@ -48,13 +46,10 @@ POOR_INFO = ("pySuStaIn gives every person a probability for each subtype (toget
              "marked 'poor fit'. Example: 0.1, 0.2, 0.4, 0.3 - the highest is 0.4, below 0.5, so poor fit. The "
              "person keeps the subtype (it is only flagged); S0 people are never flagged. Paper: 0.5.")
 COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
-CLEAN_HELP = ("False-positive check (entorhinal / precuneus). Each person has one probability per region, so 4 dots "
-              "(one in each of the first 4 columns): the probability that the region's SUVR belongs to the abnormal "
-              "bell curve of a Gaussian mixture fitted on the TRAINING cohort. Near 0 = the region looks normal; near "
-              "1 = abnormal. The last column is each person's highest of the 4 - the value that decides: above the "
-              "threshold = tau+. Grey = S0 by the model (stage 0); teal = has a subtype and kept; orange = has a "
-              "subtype but all 4 regions below the threshold, so set to S0. Move the mouse over a dot for the person, "
-              "the probability and the region's SUVR.")
+CLEAN_HELP = ("One bar per subtype the model first assigned: retained or reset to S0 by the false-positive check, "
+              "with people and %. " + RULE)
+SCAN_HELP = ("One scan the model gave a subtype: its four ROI high-signal probabilities, the threshold (dashed), and "
+             "its assignment before and after the check. " + RULE)
 
 
 def info_button(title, text):
@@ -106,8 +101,11 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
                                  figure_tools("ap_counts")),
                      ui.output_data_frame("ap_counts_table"), table_tools("ap_counts_csv")),
         ui.nav_panel("Cleanup", ui.output_ui("ap_cleanup_note"),
-                     figure_card("False-positive check (entorhinal / precuneus)", CLEAN_HELP,
-                                 ui.output_ui("ap_cleanup_plot"), figure_tools("ap_cleanup_fig"))))))
+                     figure_card("False-positive check per subtype", CLEAN_HELP,
+                                 ui.output_image("ap_cleanup_plot", height="auto"), figure_tools("ap_cleanup_fig")),
+                     figure_card("One scan", SCAN_HELP, ui.input_selectize("ap_cleanup_scan", "Scan", choices=[]),
+                                 ui.output_image("ap_cleanup_scan_plot", height="auto"),
+                                 figure_tools("ap_cleanup_scan"))))))
 
 
 def server(input, output, session, shared):
@@ -138,7 +136,7 @@ def server(input, output, session, shared):
         return {"method": method, "table": table, "prob_subtype": prob_subtype, "prob_stage": prob_stage, "z": z,
                 "p_cleanup": p,
                 "cleaned": p is not None, "notes": notes, "left_out": list(norm["z"].index[norm["left_out"]]),
-                "n_samples": n_samples, "fp_threshold": fp_threshold}
+                "n_samples": n_samples, "fp_threshold": fp_threshold, "poor_fit": poor_fit}
 
     shared["run_method"] = run_method
     shared["result"] = result
@@ -289,26 +287,56 @@ def server(input, output, session, shared):
         res = result()
         if res is None or not res["cleaned"]:
             return ui.p("Cleanup not applied.", class_="text-muted") if res is not None else None
-        return ui.p(f"{int(res['table']['cleaned'].sum())} people had a subtype but no region above "
-                    f"{res['fp_threshold']:g}: set to S0.", class_="fw-bold")
+        table = res["table"]
+        n_positive = int((table["subtype_before_cleanup"] > 0).sum())
+        return ui.p(f"{int(table['cleaned'].sum())} of {n_positive} positive assignments were reset to S0: none of "
+                    f"their four ROI high-signal probabilities exceeds {res['fp_threshold']:g}.", class_="fw-bold")
 
     def make_cleanup():
         res = result()
         if res is None or res["p_cleanup"] is None:
-            raise SafeException("The cleanup was not applied.")
-        return plot_cleanup(res["p_cleanup"], res["fp_threshold"], cleanup_groups(res["table"]))
+            raise SafeException("The false-positive check was not applied.")
+        return plot_cleanup_bars(cleanup_summary(res["table"], SUBTYPE_NAMES))
 
-    @render.ui
+    @render.image
     def ap_cleanup_plot():
-        """On the page: drawn by the browser, with the person under the mouse (PNG/PDF: the same in matplotlib)."""
+        res = result()
+        return None if res is None or res["p_cleanup"] is None else as_picture(make_cleanup())
+
+    add_figure(report_items, "ap_cleanup_fig", "False-positive check per subtype", make_cleanup, in_report=True)
+
+    @reactive.effect
+    def _scan_choices():
+        """The scans the model gave a subtype: reset to S0 first, then retained."""
         res = result()
         if res is None or res["p_cleanup"] is None:
-            return None
-        values = shared["regional"]().loc[res["p_cleanup"].index, list(res["p_cleanup"].columns)]
-        return ui.HTML(cleanup_scatter_html(res["p_cleanup"], res["fp_threshold"], cleanup_groups(res["table"]),
-                                            values))
+            ui.update_selectize("ap_cleanup_scan", choices=[], selected=None)
+            return
+        table = res["table"]
+        positive = table[table["subtype_before_cleanup"] > 0]
+        choices = {}
+        for label, rows in (("reset to S0", positive[positive["cleaned"]]), ("retained", positive[~positive["cleaned"]])):
+            choices[f"{label} ({len(rows)})"] = {str(i): str(i) for i in rows.index}
+        first = positive.index[0] if len(positive) else None
+        ui.update_selectize("ap_cleanup_scan", choices=choices, selected=str(first) if first is not None else None)
 
-    add_figure(report_items, "ap_cleanup_fig", "False-positive check (entorhinal / precuneus)", make_cleanup)
+    def make_scan():
+        res = result()
+        scan = optional_input(input, "ap_cleanup_scan")
+        if res is None or res["p_cleanup"] is None or scan not in res["p_cleanup"].index:
+            raise SafeException("Apply the model with the false-positive check and choose a scan.")
+        row = res["table"].loc[scan]
+        before = f"{SUBTYPE_NAMES[int(row['subtype_before_cleanup']) - 1]}, stage {int(row['stage_before_cleanup'])}"
+        after = "reset to S0" if row["cleaned"] else "retained"
+        return plot_scan_check(scan, res["p_cleanup"].loc[scan], res["fp_threshold"], before, after)
+
+    @render.image
+    def ap_cleanup_scan_plot():
+        res, scan = result(), optional_input(input, "ap_cleanup_scan")
+        ok = res is not None and res["p_cleanup"] is not None and scan in res["p_cleanup"].index
+        return as_picture(make_scan()) if ok else None
+
+    add_figure(report_items, "ap_cleanup_scan", "One scan: false-positive check", make_scan)
 
     def people():
         res = result()

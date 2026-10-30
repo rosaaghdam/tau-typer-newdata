@@ -430,16 +430,21 @@ def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None,
     bottom = np.zeros(len(stages))
     n_tau = max(int((table["ml_stage"] > 0).sum()), 1)
     n_s0 = int((table["ml_stage"] == 0).sum())
+    boxes = []                                            # each bar piece and its label (for the page's mouse-over)
     for n, title in enumerate(subtype_titles, start=1):
         counts = table.loc[(table["ml_subtype"] == n) & (table["ml_stage"] > 0), "ml_stage"]
-        heights = 100 * counts.value_counts().reindex(stages, fill_value=0).to_numpy() / n_tau
+        people = counts.value_counts().reindex(stages, fill_value=0).to_numpy()
+        heights = 100 * people / n_tau
         ax1.bar(stages, heights, bottom=bottom, color=colors[n - 1],
                 label=f"{title}: {100 * len(counts) / n_tau:.0f}% of tau+ (n={len(counts)})")
+        boxes += [(s - 0.4, b, s + 0.4, b + h, f"{title} · stage {s}: {c} people ({h:.1f}% of tau+)")
+                  for s, b, h, c in zip(stages, bottom, heights, people) if c > 0]
         bottom += heights
     ax1.set_xlabel(f"most likely SuStaIn stage (tau+ people, n = {n_tau}; not shown: S0, no abnormal tau, "
                    f"n = {n_s0})")
     ax1.set_ylabel("% of tau+ people")
     ax1.legend()
+    fig.tt_boxes = (ax1, boxes)
 
     tau = table[table["ml_stage"] > 0]
     if subtype is None:
@@ -624,7 +629,8 @@ def plot_subtype_tree(subtypes_by_k, colors=None):
 
 def plot_person(person, z_person, regions, expected, prob_subtype, prob_stage, subtype_titles, colors=None):
     """One person's "fingerprint": their z-scores per region (bars) next to the average of the people
-    in the same subtype and stage group (dots), plus their subtype and stage probabilities."""
+    in the same subtype and stage group (dots), plus their subtype and stage probabilities. subtype_titles may
+    start with "S0": then prob_subtype is the probability of each group S0, Subtype 1, ... (S0 drawn grey)."""
     k = len(subtype_titles)
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4.5), gridspec_kw={"width_ratios": [2.2, 1, 1.6]})
     ax1.bar(range(len(regions)), z_person[regions], color="#4C72B0", label=person)
@@ -633,7 +639,11 @@ def plot_person(person, z_person, regions, expected, prob_subtype, prob_stage, s
     ax1.set_xticks(range(len(regions)), [r.replace("_", "\n") for r in regions], fontsize=8)    # "L\nMTL": flat
     ax1.set_ylabel("z-score")
     ax1.legend(fontsize=8)
-    ax2.bar(range(k), prob_subtype, color=subtype_colors(k, colors))
+    if subtype_titles[0] == "S0":                        # the 5 groups: S0 (grey) first, then the subtypes
+        shades = np.vstack([matplotlib.colors.to_rgba("#BFC5CE"), subtype_colors(k - 1, colors)])
+    else:
+        shades = subtype_colors(k, colors)
+    ax2.bar(range(k), prob_subtype, color=shades)
     ax2.set_xticks(range(k), [t.replace(" ", "\n") for t in subtype_titles], fontsize=8)
     ax2.set_ylim(0, 1)
     ax2.set_ylabel("subtype probability")

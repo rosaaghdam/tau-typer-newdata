@@ -173,13 +173,14 @@ def test_event_stages_put_every_event_once(package):
         assert sorted(table.stack()) == list(range(1, package["n_events"] + 1))
 
 
-def test_cleanup_groups():
-    """cleanup_groups: S0 by the model, kept (a subtype and tau+), or set to S0 by the check."""
-    from src.trained_model import cleanup_groups
-    table = pd.DataFrame({"subtype_number": [0, 2, 1], "ml_stage": [0, 5, 3]}, index=["a", "b", "c"])
-    cleaned = clean_up(table, pd.Series([False, True, False], index=table.index))
-    assert list(cleanup_groups(cleaned)) == ["S0", "kept", "set to S0"]
-
+def test_cleanup_summary():
+    """cleanup_summary: per initial subtype, how many were retained and reset to S0."""
+    from src.trained_model import cleanup_summary
+    table = pd.DataFrame({"subtype_number": [0, 2, 1, 1], "ml_stage": [0, 5, 3, 4]}, index=list("abcd"))
+    cleaned = clean_up(table, pd.Series([False, True, False, True], index=table.index))
+    summary = cleanup_summary(cleaned, ["Subtype 1", "Subtype 2"])
+    assert summary.loc["Subtype 1", "retained"] == 1 and summary.loc["Subtype 1", "reset to S0"] == 1
+    assert summary.loc["Subtype 2", "% reset"] == 0
 
 def test_brain_trajectory_levels(package):
     """region_levels: every region of a lobe gets the lobe's level (1 = not reached, 2 = z 2, ...); stage 0 = none

@@ -8,12 +8,14 @@ import json
 import matplotlib.pyplot as plt
 
 
-def hover_figure_html(fig, ax, xy, tips, marked=None, element_id="tt_hover", dpi=192):
+def hover_figure_html(fig, ax, xy=(), tips=(), marked=None, element_id="tt_hover", dpi=192, boxes=()):
     """fig/ax: the figure and the axes the dots are in; xy: the dots' data coordinates (n x 2); tips: one label per
-    dot; marked: True for dots to ring in red (e.g. a wrong subtype). The picture is shown at its real size (as the
-    app's other figures) and shrinks with a narrow page."""
+    dot; marked: True for dots to ring in red (e.g. a wrong subtype); boxes: [(x0, y0, x1, y1, label)] areas in data
+    coordinates (e.g. bar pieces) with a label. The picture is shown at its real size (as the app's other figures)
+    and shrinks with a narrow page."""
     fig.canvas.draw()
-    where = fig.transFigure.inverted().transform(ax.transData.transform(xy))   # 0-1 of the figure, any screen
+    to_figure = lambda points: fig.transFigure.inverted().transform(ax.transData.transform(points))   # 0-1, any screen
+    where = to_figure(xy) if len(xy) else []
     buffer = io.BytesIO()
     fig.savefig(buffer, format="png", dpi=dpi)                     # not "tight": the dots must keep their place
     plt.close(fig)
@@ -24,6 +26,11 @@ def hover_figure_html(fig, ax, xy, tips, marked=None, element_id="tt_hover", dpi
         spots.append(f'<span data-tip="{html.escape(tip)}" style="position:absolute; left:{100 * x:.3f}%; '
                      f'top:{100 * (1 - y):.3f}%; width:14px; height:14px; margin:-7px 0 0 -7px; '
                      f'border-radius:50%; cursor:crosshair; {ring}"></span>')
+    for x0, y0, x1, y1, tip in boxes:
+        (left, bottom), (right, top) = to_figure([(x0, y0), (x1, y1)])
+        spots.append(f'<span data-tip="{html.escape(tip)}" style="position:absolute; left:{100 * left:.3f}%; '
+                     f'top:{100 * (1 - top):.3f}%; width:{100 * (right - left):.3f}%; '
+                     f'height:{100 * (top - bottom):.3f}%; cursor:crosshair;"></span>')
     return f"""
 <div id="{element_id}" style="position:relative; width:100%; max-width:{fig.get_figwidth() * 96:.0f}px;">
   <img src="data:image/png;base64,{picture}" style="width:100%; display:block;" alt="figure">

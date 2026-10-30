@@ -136,7 +136,7 @@ def apply_model(z, package, n_samples):
     try:
         sustain = ZscoreSustain(data, package["Z_vals"], package["Z_max"], package["lobes"], 1,
                                 package["n_subtypes"], 1, folder, "apply", False)
-        ml_subtype, prob_ml_subtype, ml_stage, prob_ml_stage, prob_subtype, prob_stage, _ = \
+        ml_subtype, prob_ml_subtype, ml_stage, prob_ml_stage, prob_subtype, prob_stage, prob_subtype_stage = \
             sustain.subtype_and_stage_individuals_newData(data, package["samples_sequence"], package["samples_f"],
                                                           int(n_samples))
     finally:
@@ -148,6 +148,10 @@ def apply_model(z, package, n_samples):
     for n in range(prob_subtype.shape[1]):
         table[f"p_S{n + 1}"] = prob_subtype[:, n]
     table["subtype_number"] = np.where(table["ml_stage"] > 0, table["ml_subtype"], 0)
+    # the 5 groups S0, Subtype 1..k: P(stage 0), and P(subtype k at a stage above 0) - together 1 per person
+    table["group_p_S0"] = prob_subtype_stage[:, 0, :].sum(axis=1)
+    for n in range(prob_subtype_stage.shape[2]):
+        table[f"group_p_S{n + 1}"] = prob_subtype_stage[:, 1:, n].sum(axis=1)
     return table, prob_subtype, prob_stage
 
 
@@ -179,15 +183,16 @@ def clean_up(table, tau_pos):
     return table
 
 
-def cleanup_groups(table):
-    """Each person's group in the false-positive check: "S0" (stage 0 by the model), "kept" (a subtype and at least
-    one region above the threshold) or "set to S0" (a subtype but no region above the threshold)."""
-    before = table["stage_before_cleanup"] if "stage_before_cleanup" in table else table["ml_stage"]
-    groups = pd.Series("kept", index=table.index)
-    groups[before == 0] = "S0"
-    if "cleaned" in table:
-        groups[table["cleaned"].astype(bool)] = "set to S0"
-    return groups
+def cleanup_summary(table, names):
+    """Per initial subtype (the model's assignment before the false-positive check): people retained, reset to S0,
+    total and % reset. table: after clean_up."""
+    rows = {}
+    for number, name in enumerate(names, start=1):
+        first = table["subtype_before_cleanup"] == number
+        reset = int((first & table["cleaned"].astype(bool)).sum())
+        rows[name] = {"retained": int(first.sum()) - reset, "reset to S0": reset, "total": int(first.sum()),
+                      "% reset": round(100 * reset / max(int(first.sum()), 1), 1)}
+    return pd.DataFrame(rows).T.astype({"retained": int, "reset to S0": int, "total": int})
 
 
 def label_table(table, names, poor_fit_threshold):

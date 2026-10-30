@@ -346,15 +346,8 @@ def plot_normal_values(tables, lobes):
     return fig
 
 
-CLEANUP_GROUPS = {"S0": ("S0 by the model (stage 0)", S0_COLOR), "kept": ("subtype, kept", NEW_COLOR),
-                  "set to S0": ("subtype, set to S0 by the check", TRAINING_COLOR)}
-CLEANUP_YLABEL = "P(abnormal bell curve)"
-HIGHEST = "highest of the 4"                  # the last column: each person's highest value - the one that decides
-
-
-def with_highest(p):
-    """The cleanup probabilities plus a last column with each person's highest one (tau+ = above the threshold)."""
-    return p.assign(**{HIGHEST: p.max(axis=1)})
+PROB_LABEL = "ROI high-signal probability"   # the probability of the higher bell curve (2-component GMM)
+RETAINED, RESET = NEW_COLOR, TRAINING_COLOR
 
 
 def short_region(name):
@@ -365,29 +358,44 @@ def short_region(name):
     return name
 
 
-def cleanup_jitter(n_people, n_regions, seed=0):
-    """The same small left-right offsets for the dots in the PNG and on the page (people x regions)."""
-    return np.random.default_rng(seed).uniform(-0.25, 0.25, (n_people, n_regions))
+def plot_cleanup_bars(summary):
+    """False-positive check, one horizontal bar per initial subtype: retained vs reset to S0 (people and %).
+    summary: from trained_model.cleanup_summary."""
+    fig, ax = plt.subplots(figsize=(9, 0.55 * len(summary) + 1.4))
+    y = np.arange(len(summary))
+    ax.barh(y, summary["retained"], color=RETAINED, label="retained")
+    ax.barh(y, summary["reset to S0"], left=summary["retained"], color=RESET, label="reset to S0")
+    for row, (_, r) in enumerate(summary.iterrows()):
+        if r["retained"]:
+            ax.text(r["retained"] / 2, row, f"{int(r['retained'])} ({100 - r['% reset']:.0f}%)", ha="center",
+                    va="center", color="white", fontsize=9)
+        if r["reset to S0"]:
+            ax.text(r["retained"] + r["reset to S0"] + 0.01 * summary["total"].max(), row,
+                    f"{int(r['reset to S0'])} reset ({r['% reset']:.0f}%)", va="center", fontsize=9, color="#8A5A00")
+    ax.set_yticks(y, summary.index)
+    ax.invert_yaxis()
+    ax.set_xlim(0, summary["total"].max() * 1.25)
+    ax.set_xlabel("people the model gave this subtype")
+    ax.legend(loc="lower right", frameon=False, fontsize=9)
+    fig.tight_layout()
+    return fig
 
 
-def plot_cleanup(p, threshold, groups=None):
-    """False-positive check: each person's probability of the abnormal bell curve in each cleanup region (dots),
-    coloured by group (S0 / kept / set to S0, see CLEANUP_GROUPS); dashed = the threshold."""
-    p = with_highest(p)
-    fig, ax = plt.subplots(figsize=(1.8 * p.shape[1] + 3.2, 3.8))
-    groups = pd.Series("kept", index=p.index) if groups is None else groups.reindex(p.index)
-    jitter = cleanup_jitter(len(p), p.shape[1])
-    for key, (label, shade) in CLEANUP_GROUPS.items():
-        rows = np.flatnonzero((groups == key).to_numpy())
-        for i, roi in enumerate(p.columns):
-            ax.scatter(i + jitter[rows, i], p[roi].to_numpy()[rows], s=10, alpha=0.6, color=shade,
-                       label=f"{label} (n = {len(rows)})" if i == 0 else None)
-    ax.axhline(threshold, ls="--", color="#C62828", lw=1.2, label=f"threshold {threshold:g}")
-    ax.axvline(p.shape[1] - 1.5, color="#9AA5B1", lw=0.8)       # the regions | the highest of them
-    ax.set_xticks(range(p.shape[1]), [short_region(c) for c in p.columns])
-    ax.set_ylabel(CLEANUP_YLABEL)
-    ax.set_ylim(-0.03, 1.03)
-    ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), frameon=False, fontsize=8)
+def plot_scan_check(person, p_row, threshold, before, after):
+    """One scan: its four ROI high-signal probabilities (bars), the threshold (dashed), and its assignment before
+    and after the check (title)."""
+    fig, ax = plt.subplots(figsize=(8, 0.45 * len(p_row) + 1.5))
+    y = np.arange(len(p_row))
+    ax.barh(y, p_row.to_numpy(float), color=[RETAINED if v > threshold else "#BFC5CE" for v in p_row], height=0.6)
+    for row, value in enumerate(p_row):
+        ax.text(min(value, 1) + 0.01, row, f"{value:.3f}", va="center", fontsize=9)
+    ax.axvline(threshold, ls="--", color="#C62828", lw=1.2, label=f"threshold {threshold:g}")
+    ax.set_yticks(y, [short_region(c) for c in p_row.index])
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.12)
+    ax.set_xlabel(PROB_LABEL)
+    ax.set_title(f"{person}: {before}  ->  {after}", loc="left", fontsize=11, fontweight="bold")
+    ax.legend(loc="lower right", frameon=False, fontsize=9)
     fig.tight_layout()
     return fig
 
