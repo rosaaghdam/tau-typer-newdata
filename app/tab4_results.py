@@ -18,14 +18,19 @@ REF_COLUMNS = CONFIG["model"]["reference_columns"]     # study, age, sex, diagno
 HELP = {
     "patterns": "Average z-score of each lobe (rows) in each subtype (columns), tau+ people only "
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
+    "probs_train": "The same for the training cohort (the trained model applied to its own people, normalization "
+                   "method 1, the settings of your run). No labels under the mouse: the training people stay private.",
+    "stages_train": "The same for the training cohort (the trained model applied to its own people, normalization "
+                    "method 1, the settings of your run): % of its tau+ people at each stage, by subtype. Only group "
+                    "numbers - no single training person is shown. Move the mouse over a bar piece for its number.",
     "boxes_train": "The same box plots for the training cohort (the trained model applied to its own people, "
-                   "normalization method 1, the settings of your run). The y range is shared with your data's figure.",
+                   "normalization method 1, the settings of your run). The y range is shared with the test data's figure.",
     "patterns_train": "The same for the training cohort: the trained model applied to its own people (normalization "
-                      "method 1, the settings of your run). Group averages only. The same colour scale as your data.",
+                      "method 1, the settings of your run). Group averages only. The same colour scale as the test data.",
     "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
              "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range - from the "
-             "lowest to the highest z-score of all lobes (yours and the training cohort's) - so the lobes and the two figures can be compared.",
-    "trajectory": "One subtype in your data on 3D brains (left and right, outside and inside views): top row, the "
+             "lowest to the highest z-score of all lobes (the test data's and the training cohort's) - so the lobes and the two figures can be compared.",
+    "trajectory": "One subtype in the test data on 3D brains (left and right, outside and inside views): top row, the "
                   "average z-score of all its tau+ people; below, the people in each stage group (1-6, 7-12, ...), so "
                   "you can follow tau spreading. Each lobe is coloured on its cortex regions: grey = below z 2 (normal), "
                   "light to dark blue = z 2 to 10; white = regions in no lobe of the model. Hippocampus and amygdala lie "
@@ -36,8 +41,9 @@ HELP = {
     "stage_hist": "The stages of each subtype's people.",
     "probs": "How clearly each tau+ person belongs to one subtype: each corner is a subtype; close to a corner = "
              "clearly that subtype, towards the middle = a mix. Move the mouse over a dot: the person, their two most "
-             "likely subtypes with probabilities, and their stage. Example data: also the true subtype; the table "
-             "below lists the people whose subtype differs from the truth.",
+             "likely subtypes with probabilities, and their stage. The table below lists the people whose subtype is "
+             "least clear (probability below your limit) with their second most likely subtype. Example data: also "
+             "the true subtype.",
     "person": "One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
               "stage group (dots); their probability of each of the 5 groups - S0 (stage 0) and Subtypes 1-4 (a "
               "stage above 0), together 1 - and of each stage. The false-positive check (step 3) can still move a "
@@ -49,7 +55,7 @@ HELP = {
 def side_by_side(yours, yours_csv, training, training_csv):
     """Two tables next to each other: your data (left) and the training cohort (right)."""
     return ui.layout_columns(
-        ui.card(ui.card_header("Your data"), ui.output_data_frame(yours), table_tools(yours_csv)),
+        ui.card(ui.card_header("Test data"), ui.output_data_frame(yours), table_tools(yours_csv)),
         ui.card(ui.card_header("Training cohort"), ui.output_data_frame(training), table_tools(training_csv)),
         col_widths=[6, 6], class_="mt-2")
 
@@ -62,13 +68,13 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(
     ui.nav_panel("Overview", ui.output_ui("rs_training_note"),
                  side_by_side("rs_summary", "rs_summary_csv", "rs_summary_train", "rs_summary_train_csv"),
                  ui.layout_columns(
-                     figure_card("Tau pattern of each subtype: your data", HELP["patterns"],
+                     figure_card("Tau pattern of each subtype: test data", HELP["patterns"],
                                  ui.output_image("rs_patterns", height="auto"), figure_tools("rs_patterns")),
                      figure_card("Tau pattern of each subtype: training cohort", HELP["patterns_train"],
                                  ui.output_image("rs_patterns_train", height="auto"), figure_tools("rs_patterns_train")),
                      col_widths=[6, 6])),
     ui.nav_panel("Lobes per subtype",
-                 figure_card("z-scores per group: your data", HELP["boxes"],
+                 figure_card("z-scores per group: test data", HELP["boxes"],
                              ui.output_image("rs_boxes", height="auto"), figure_tools("rs_boxes")),
                  figure_card("z-scores per group: training cohort", HELP["boxes_train"],
                              ui.output_image("rs_boxes_train", height="auto"), figure_tools("rs_boxes_train"))),
@@ -84,13 +90,26 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(
                              ui.output_ui("rs_uncertain_note"), ui.output_data_frame("rs_uncertain"),
                              table_tools("rs_uncertain_csv")),
                  figure_card("Stages per subtype", HELP["stage_hist"], ui.output_image("rs_stage_hist", height="auto"),
-                             figure_tools("rs_stage_hist"))),
+                             figure_tools("rs_stage_hist")),
+                 figure_card("Stages: training cohort", HELP["stages_train"], ui.output_ui("rs_stages_train"),
+                             figure_tools("rs_stages_train")),
+                 figure_card("Stages per subtype: training cohort", HELP["stages_train"],
+                             ui.output_image("rs_stage_hist_train", height="auto"), figure_tools("rs_stage_hist_train"))),
     ui.nav_panel("Probabilities", figure_card("Subtype probabilities", HELP["probs"],
                                               ui.output_ui("rs_probs"), figure_tools("rs_probs"),
-                                              ui.output_ui("rs_wrong_note"), ui.output_data_frame("rs_wrong"),
-                                              table_tools("rs_wrong_csv"))),
+                                              ui.input_numeric("rs_unclear_limit", "List people with a subtype "
+                                                               "probability below", value=0.9, min=0, max=1, step=0.05,
+                                                               width="18rem"),
+                                              ui.output_ui("rs_unclear_note"), ui.output_data_frame("rs_unclear"),
+                                              table_tools("rs_unclear_csv")),
+                 figure_card("Subtype probabilities: training cohort", HELP["probs_train"],
+                             ui.output_image("rs_probs_train", height="auto"), figure_tools("rs_probs_train"))),
     ui.nav_panel("Per person", figure_card("One person", HELP["person"],
-                                           ui.input_selectize("rs_person", "Person", choices=[]),
+                                           ui.layout_columns(
+                                               ui.input_select("rs_person_group", "Group",
+                                                               choices=["S0"] + SUBTYPE_NAMES, selected=SUBTYPE_NAMES[0]),
+                                               ui.input_selectize("rs_person", "Person", choices=[]),
+                                               col_widths=[3, 4]),
                                            ui.output_image("rs_person_plot", height="auto"), figure_tools("rs_person"))),
     ui.nav_panel("Per study", ui.output_ui("rs_study_note"),
                  figure_card("Subtypes per study", HELP["studies"], ui.output_image("rs_studies", height="auto"),
@@ -227,6 +246,29 @@ def server(input, output, session, shared):
 
     add_table(report_items, "rs_uncertain_csv", "People with an uncertain stage", uncertain)
 
+    def make_stages_train():
+        return plot_stages(training(), SUBTYPE_NAMES, bars_only=True)
+
+    @render.ui
+    def rs_stages_train():
+        if not shown():
+            return None
+        fig = make_stages_train()
+        ax, boxes = fig.tt_boxes
+        return ui.HTML(hover_figure_html(fig, ax, boxes=boxes, element_id="rs_stages_train_hover"))
+
+    add_figure(report_items, "rs_stages_train", "Stages (training cohort)", make_stages_train, in_report=True)
+
+    def make_stage_hist_train():
+        return plot_stage_histograms(training(), SUBTYPE_NAMES, PACKAGE["n_events"])
+
+    @render.image
+    def rs_stage_hist_train():
+        return as_picture(make_stage_hist_train()) if shown() else None
+
+    add_figure(report_items, "rs_stage_hist_train", "Stages per subtype (training cohort)", make_stage_hist_train,
+               in_report=True)
+
     def make_stage_hist():
         return plot_stage_histograms(res()["table"], SUBTYPE_NAMES, PACKAGE["n_events"])
 
@@ -273,42 +315,39 @@ def server(input, output, session, shared):
 
     add_figure(report_items, "rs_probs", "Subtype probabilities", make_probs, in_report=True)
 
-    def wrong_subtypes():
-        """Example data only: the tau+ people whose subtype differs from their true subtype, least sure first."""
-        truth = true_subtypes()
-        if truth is None:
-            raise SafeException("Only the example data has true subtypes.")
-        r = res()
-        table = r["table"]
+    def unclear_subtypes():
+        """The tau+ people whose subtype probability is below the chosen limit, least clear first: their subtype, its
+        probability and the second most likely subtype. Example data: also the true subtype."""
+        r, truth = res(), true_subtypes()
+        table, limit = r["table"], input.rs_unclear_limit() if input.rs_unclear_limit() is not None else 0.9
         rows = []
-        for row in range((len(table))):
-            if table["ml_stage"].iloc[row] == 0:
+        for row in range(len(table)):
+            p = r["prob_subtype"][row]
+            if table["ml_stage"].iloc[row] == 0 or p.max() >= limit:
                 continue
-            person = table.index[row]
-            true = truth.get(str(person))
-            if true is not None and true != table["subtype"].iloc[row]:
-                p = r["prob_subtype"][row]
-                rows.append({"ID": person, "subtype": table["subtype"].iloc[row], "probability": round(float(p.max()), 3),
-                             "true subtype": true, "P(true subtype)": round(float(p[SUBTYPE_NAMES.index(true)]), 3)
-                             if true in SUBTYPE_NAMES else None, "stage": int(table["ml_stage"].iloc[row])})
-        return pd.DataFrame(rows, columns=["ID", "subtype", "probability", "true subtype", "P(true subtype)",
-                                           "stage"]).sort_values("probability")
+            order = np.argsort(p)[::-1]
+            item = {"ID": table.index[row], "subtype": table["subtype"].iloc[row],
+                    "probability": round(float(p[order[0]]), 3), "second subtype": SUBTYPE_NAMES[order[1]],
+                    "second probability": round(float(p[order[1]]), 3), "stage": int(table["ml_stage"].iloc[row])}
+            if truth is not None:
+                item["true subtype (example data)"] = truth.get(str(table.index[row]))
+            rows.append(item)
+        return pd.DataFrame(rows).sort_values("probability") if rows else pd.DataFrame(columns=["ID", "subtype"])
 
     @render.ui
-    def rs_wrong_note():
-        if not shown() or true_subtypes() is None:
+    def rs_unclear_note():
+        if not shown():
             return None
         n_tau = int((res()["table"]["ml_stage"] > 0).sum())
-        return ui.h6(f"Example data: {len(wrong_subtypes())} of {n_tau} tau+ people have a different subtype than "
-                     "their true one", class_="mt-3")
+        limit = input.rs_unclear_limit() if input.rs_unclear_limit() is not None else 0.9
+        return ui.h6(f"{len(unclear_subtypes())} of {n_tau} tau+ people have a subtype probability below {limit:g}",
+                     class_="mt-3")
 
     @render.data_frame
-    def rs_wrong():
-        if not shown() or true_subtypes() is None:
-            return None
-        return render.DataGrid(wrong_subtypes(), height="320px")
+    def rs_unclear():
+        return render.DataGrid(unclear_subtypes(), height="320px") if shown() else None
 
-    add_table(report_items, "rs_wrong_csv", "People with a wrong subtype (example data)", wrong_subtypes)
+    add_table(report_items, "rs_unclear_csv", "People with the least clear subtype", unclear_subtypes)
 
     def study_percent():
         r, cols = res(), shared["columns"]()
@@ -422,6 +461,18 @@ def server(input, output, session, shared):
     add_figure(report_items, "rs_patterns_train", "Tau pattern of each subtype (training cohort)", make_patterns_train,
                in_report=True)
 
+    def make_probs_train():
+        table = training()
+        return plot_subtype_probabilities(table[[f"p_S{n}" for n in range(1, len(SUBTYPE_NAMES) + 1)]].to_numpy(),
+                                          table, SUBTYPE_NAMES)
+
+    @render.image
+    def rs_probs_train():
+        return as_picture(make_probs_train()) if shown() else None
+
+    add_figure(report_items, "rs_probs_train", "Subtype probabilities (training cohort)", make_probs_train,
+               in_report=True)
+
     def summary_train():
         out = subtype_summary(training())
         return out.loc[[g for g in ["S0"] + SUBTYPE_NAMES if g in out.index]]
@@ -446,18 +497,15 @@ def server(input, output, session, shared):
 
     @reactive.effect
     def _person_choices():
-        """Everyone, grouped S0, Subtype 1, ... (within a group by stage); the first tau+ person is shown first."""
-        res = result()
+        """The people of the chosen group (S0, Subtype 1, ...), by stage; the first one is shown."""
+        res, group = result(), input.rs_person_group()
         if res is None:
             ui.update_selectize("rs_person", choices=[], selected=None)
             return
-        table = res["table"].sort_values(["subtype_number", "ml_stage"], kind="stable")
-        choices = {}
-        for number, group in table.groupby("subtype_number", sort=True):
-            name = "S0" if number == 0 else SUBTYPE_NAMES[number - 1]
-            choices[f"{name} ({len(group)} people)"] = {str(i): str(i) for i in group.index}
-        tau_pos = table.index[table["subtype_number"] > 0]
-        ui.update_selectize("rs_person", choices=choices, selected=str(tau_pos[0] if len(tau_pos) else table.index[0]))
+        number = 0 if group == "S0" else SUBTYPE_NAMES.index(group) + 1
+        table = res["table"]
+        people = [str(i) for i in table[table["subtype_number"] == number].sort_values("ml_stage", kind="stable").index]
+        ui.update_selectize("rs_person", choices=people, selected=people[0] if people else None)
 
     def make_person():
         res = result()

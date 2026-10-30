@@ -27,7 +27,7 @@ EVENTS_HELP = ("Each learned subtype: every lobe's events - circle = the lobe re
 LIKELIHOOD_HELP = ("The trained models' MCMC, as pySuStaIn saved it (samples_likelihood), one per number of "
                    "subtypes. Left: mean log-likelihood per number of subtypes (higher = fits the training cohort "
                    "better, but it always rises with more subtypes). Right: the log-likelihood of every MCMC sample; "
-                   "a flat line = the MCMC was stable. From the training, not from your data.")
+                   "a flat line = the MCMC was stable. From the training, not from the test data.")
 BRAIN_HELP = ("One learned subtype on 3D brains (left and right, outside and inside views), one row per stage: each "
               "lobe's cortex regions are coloured by the highest cut-point the lobe has reached by then in the model "
               "(grey = not yet; light blue z 2, blue z 5, dark blue z 10; white = regions in no lobe of the model). "

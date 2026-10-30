@@ -18,7 +18,7 @@ VIEWS = ["left_lateral", "left_medial", "right_medial", "right_lateral"]
 NOT_REACHED = "#A9B1BB"                                   # a lobe that has not reached z 2 yet
 OUTSIDE = "#FFFFFF"                                       # regions in no lobe of the model (and the medial wall)
 LEVEL_COLOURS = ["#9ECAE1", "#4292C6", "#08306B"]         # z 2, z 5, z 10: the app's blue scale, no black
-VERSION = 4                                               # raise when the drawing changes: old cached files are not used
+VERSION = 5                                               # raise when the drawing changes: old cached files are not used
 
 
 def atlas_name(region):
@@ -152,7 +152,7 @@ def subtype_brains_png(z, table, lobes, regions, subtype_number, name, stage_edg
     path = Path(folder) / "your_data" / f"{h.hexdigest()[:16]}.png"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        fig = draw_brain_rows(rows, Z_CMAP, Z_RANGE, f"{name}: trajectory in your data",
+        fig = draw_brain_rows(rows, Z_CMAP, Z_RANGE, f"{name}: trajectory in the test data",
                               colour_label=f"average z-score of the people (grey = below {LOW_Z}, normal)")
         fig.savefig(path, dpi=150)
         plt.close(fig)

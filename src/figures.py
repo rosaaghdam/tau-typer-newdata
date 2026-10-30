@@ -411,22 +411,25 @@ def plot_subtype_probabilities(prob_subtype, table, subtype_titles, seed=0, colo
     return fig
 
 
-def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None, colors=None):
+def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None, colors=None, bars_only=False):
     """Top: % of the tau+ people at each SuStaIn stage 1, 2, ..., per subtype (paper Ext. Fig. 2). The S0
     people (stage 0, no abnormal tau - no subtype) are not drawn; their number is written under the axis.
     Middle: how sure SuStaIn is about each person's stage (table column stage_sd) against the most likely
     stage (high where events overlap - the pale squares of the PVD).
     Right: the same uncertainty per subtype. Dashed red line = sd_limit (above = uncertain stage).
     person: this person's dot gets a black ring. subtype (1, 2, ...): only this subtype in colour in the
-    middle and right panels, the others grey."""
+    middle and right panels, the others grey. bars_only: only the top panel (group numbers, no single people)."""
     k = len(subtype_titles)
     colors = subtype_colors(k, colors)
     stages = np.arange(table["ml_stage"].max() + 1)
-    fig = plt.figure(figsize=(13, 9))                    # top: S0 + stages; bottom: uncertainty + per subtype
-    grid = fig.add_gridspec(2, 1)
-    ax1 = fig.add_subplot(grid[0])
-    bottom_row = grid[1].subgridspec(1, 2, width_ratios=[3, 1])
-    ax2, ax3 = fig.add_subplot(bottom_row[0]), fig.add_subplot(bottom_row[1])
+    if bars_only:                                        # only the group numbers (e.g. the training cohort)
+        fig, ax1 = plt.subplots(figsize=(13, 4.5))
+    else:
+        fig = plt.figure(figsize=(13, 9))                # top: S0 + stages; bottom: uncertainty + per subtype
+        grid = fig.add_gridspec(2, 1)
+        ax1 = fig.add_subplot(grid[0])
+        bottom_row = grid[1].subgridspec(1, 2, width_ratios=[3, 1])
+        ax2, ax3 = fig.add_subplot(bottom_row[0]), fig.add_subplot(bottom_row[1])
     bottom = np.zeros(len(stages))
     n_tau = max(int((table["ml_stage"] > 0).sum()), 1)
     n_s0 = int((table["ml_stage"] == 0).sum())
@@ -445,6 +448,11 @@ def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None,
     ax1.set_ylabel("% of tau+ people")
     ax1.legend()
     fig.tt_boxes = (ax1, boxes)
+    if bars_only:
+        ax1.set_xticks(stages[1:], stages[1:], fontsize=7)
+        ax1.set_xlim(0.4, stages[-1] + 0.6)
+        fig.tight_layout()
+        return fig
 
     tau = table[table["ml_stage"] > 0]
     if subtype is None:

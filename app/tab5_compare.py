@@ -60,7 +60,7 @@ panel = ui.nav_panel(step_title(5, "Compare", "cp_status"), ui.navset_tab(
     ui.nav_panel("Datasets", ui.layout_sidebar(
         ui.sidebar(
             ui.input_checkbox_group("ds_builtin", "Compare",
-                                    choices={"current": "Your data (the run of step 3)",
+                                    choices={"current": "Test data (the run of step 3)",
                                              "training": "Training cohort (same settings)"},
                                     selected=["current", "training"]),
             ui.input_file("ds_files", "Add saved run files (CSV, from step 4 'Save run file')", accept=[".csv"],
@@ -213,7 +213,7 @@ def server(input, output, session, shared):
         """{name: (results table, diagnosis, amyloid, settings)} of the chosen datasets."""
         out, chosen = {}, input.ds_builtin() or []
         if "current" in chosen and shared["result"]() is not None:
-            out["Your data"] = shared["current_run"]()
+            out["Test data"] = shared["current_run"]()
         if "training" in chosen and shared["result"]() is not None:
             out["Training cohort"] = shared["training_run"]()
         for file in optional_input(input, "ds_files") or []:
@@ -227,7 +227,7 @@ def server(input, output, session, shared):
     def ds_note():
         chosen = input.ds_builtin() or []
         if shared["result"]() is None and ("current" in chosen or "training" in chosen):
-            return ui.div("Apply the model in step 3 to compare your data and the training cohort; saved run files "
+            return ui.div("Apply the model in step 3 to compare the test data and the training cohort; saved run files "
                           "can be compared without it.", class_="alert alert-info")
         n = len(datasets())
         return None if n >= 2 else ui.div("Choose or add at least two datasets.", class_="alert alert-info")
