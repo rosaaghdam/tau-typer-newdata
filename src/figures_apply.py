@@ -152,6 +152,27 @@ def plot_z_heatmap(z, lobes, limits=(-3, 10), order=None):
     return fig
 
 
+def plot_lobe_onsets(means, sds, lobes, n_events, colors=None):
+    """The learned subtypes side by side: for every lobe, the stage at which it reaches z 2 in each subtype
+    (dot = mean over the model's MCMC samples, line = +- 1 SD). Early lobes on the left = where the subtype starts."""
+    k = len(means)
+    shades = subtype_colors(k, colors)
+    fig, ax = plt.subplots(figsize=(9, 0.42 * len(lobes) + 1.6))
+    y = np.arange(len(lobes))
+    offsets = np.linspace(-0.27, 0.27, k) if k > 1 else [0]
+    for (name, row), shade, off in zip(means.iterrows(), shades, offsets):
+        ax.errorbar(row[lobes].to_numpy(), y + off, xerr=sds.loc[name, lobes].to_numpy(), fmt="o", ms=5, lw=1.2,
+                    color=shade, label=name)
+    ax.set_yticks(y, [nice_region(lobe) for lobe in lobes])
+    ax.invert_yaxis()
+    ax.set_xlim(0.5, n_events + 0.5)
+    ax.set_xlabel("stage at which the lobe reaches z 2 (mean +- SD over the model's MCMC samples)")
+    ax.grid(axis="x", lw=0.4, alpha=0.5)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=k, frameon=False, fontsize=9)
+    fig.tight_layout()
+    return fig
+
+
 def plot_z_histograms(z, lobes, cut_points=(2, 5, 10), training_z=None):
     """z-scores of each lobe; dashed lines = the model's cut-points (z 2, 5, 10). With training_z: the training
     cohort's z-scores as an outline, both groups as % of their people (the groups differ in size)."""

@@ -14,7 +14,7 @@ plt.style.use(Path(__file__).with_name("tau_typer.mplstyle"))   # one look for e
 
 
 def plot_pvd(result, Z_vals, regions, subtype_titles, save_path, stage_interval=2, subtype_order=None,
-             legend=True):
+             legend=True, people=True):
     """Clearer positional variance diagram (PVD), drawn by pySuStaIn's plot_positional_var.
 
     Rows = regions, columns = SuStaIn stages. Red = region reaches z 2, magenta = z 5,
@@ -25,17 +25,21 @@ def plot_pvd(result, Z_vals, regions, subtype_titles, save_path, stage_interval=
     Each title gets pySuStaIn's f and n, as pySuStaIn writes them: f = the subtype's share of ALL people
     (mean over the MCMC samples; S0 people are shared out over the subtypes too), n = f x number of people.
     tau+ = people with stage > 0 assigned to the subtype - the number in the app's tables and other figures.
+    people=False: the model alone (no people yet), titles show only f.
     """
     k = len(subtype_titles)
     shares = np.mean(result["samples_f"], axis=1)                     # pySuStaIn's own numbers
     by_f = np.argsort(shares)[::-1]                                   # pySuStaIn's numbering of ml_subtype
     order = by_f if subtype_order is None else subtype_order
-    n_people = len(result["ml_subtype"])
-    tau = result["ml_stage"].ravel() > 0
-    tau_counts = np.bincount(result["ml_subtype"].ravel()[tau].astype(int), minlength=k)
-    tau_of = {by_f[j]: tau_counts[j] for j in range(k)}               # by the subtype's number in samples_f
-    subtype_titles = [f"{title} (f={shares[i]:.2f}, n={round(shares[i] * n_people)}, tau+ {tau_of[i]})"
-                      for title, i in zip(subtype_titles, order)]
+    if people:
+        n_people = len(result["ml_subtype"])
+        tau = result["ml_stage"].ravel() > 0
+        tau_counts = np.bincount(result["ml_subtype"].ravel()[tau].astype(int), minlength=k)
+        tau_of = {by_f[j]: tau_counts[j] for j in range(k)}           # by the subtype's number in samples_f
+        subtype_titles = [f"{title} (f={shares[i]:.2f}, n={round(shares[i] * n_people)}, tau+ {tau_of[i]})"
+                          for title, i in zip(subtype_titles, order)]
+    else:
+        subtype_titles = [f"{title} (f={shares[i]:.2f})" for title, i in zip(subtype_titles, order)]
     n_rows, n_cols = (1, k) if k < 3 else (2, int(np.ceil(k / 2)))     # pySuStaIn's own grid (up to 6)
     n_events = int((Z_vals > 0).sum())
     panel_height = 7 / n_cols * len(regions) / n_events + 1.2          # cells are square in the PVD

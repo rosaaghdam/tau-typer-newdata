@@ -1,5 +1,6 @@
 """Tab 3 - Apply the trained model: pySuStaIn's subtype_and_stage_individuals_newData gives every person a
 subtype, a stage and their probabilities from the SAVED model. Nothing is trained."""
+import matplotlib.colors as mcolors
 import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
@@ -7,15 +8,24 @@ from shiny.types import SafeException
 from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.compare import group_counts
-from src.figures import plot_pvd
-from src.figures_apply import plot_cleanup, plot_group_counts
+from src.figures import nice_region, plot_pvd, subtype_colors
+from src.figures_apply import plot_cleanup, plot_group_counts, plot_lobe_onsets
 from src.normalization import METHODS
-from src.trained_model import apply_model, clean_up, label_table, tau_positive
+from src.trained_model import apply_model, clean_up, label_table, lobe_onsets, tau_positive
 
 MODEL = CONFIG["model"]
+N_SAVED = PACKAGE["n_mcmc_samples"]                  # pySuStaIn would only repeat samples beyond this
+ONSET_MEAN, ONSET_SD, SHARES = lobe_onsets(PACKAGE)
 PVD_HELP = ("The trained model itself, drawn by pySuStaIn (positional variance diagram): rows = lobes, columns = "
             "stages; red = the lobe reaches z 2, magenta = z 5, blue = z 10. Dark = the event is (almost) always at "
-            "that stage in the model's MCMC samples. tau+ = your people assigned to the subtype.")
+            "that stage in the model's MCMC samples. f = the subtype's share in the model; after 'Apply the model' "
+            "also n and tau+ = your people assigned to the subtype.")
+ONSET_HELP = ("The learned subtypes side by side: for every lobe, the stage (1-%d) at which it first becomes abnormal "
+              "(reaches z 2) in each subtype. Dot = mean over the model's saved MCMC samples, line = +- 1 SD (how "
+              "sure the model is). Lobes on the left are where the subtype starts; on the right, where it ends."
+              % PACKAGE["n_events"])
+CARD_HELP = ("One card per learned subtype: its share f in the model (mean over the MCMC samples; pySuStaIn spreads "
+             "the S0 people over the subtypes too), and its lobes ordered by when they first reach z 2.")
 COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
 CLEAN_HELP = ("False-positive check: for entorhinal and precuneus (both sides) a Gaussian mixture "
               "fitted on the TRAINING cohort gives each person's probability of abnormal tau. People with a subtype "
@@ -33,19 +43,24 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
         ui.input_checkbox("ap_cleanup", "False-positive check (entorhinal / precuneus)", value=True),
         ui.input_numeric("ap_poor", "Poor fit: subtype probability below", value=MODEL["poor_fit_threshold"],
                          min=0, max=1, step=0.05),
-        ui.input_numeric("ap_samples", "MCMC samples used", value=MODEL["n_samples"], min=10, max=100000, step=100),
+        ui.input_numeric("ap_samples", "MCMC samples used", value=min(MODEL["n_samples"], N_SAVED), min=1,
+                         max=N_SAVED, step=1 if N_SAVED < 1000 else 100),
+        ui.p(f"At most {N_SAVED}: the number of samples saved in the trained model.", class_="small text-muted"),
         ui.input_action_button("ap_run", "Apply the model", class_="btn-primary w-100"),
         ui.p("Nothing is trained: the saved model is only read.", class_="small text-muted mt-2"),
         width=330, open="always"),
     ui.output_ui("ap_model_info"),
     ui.output_ui("ap_result_note"),
     ui.navset_tab(
+        ui.nav_panel("Learned subtypes", ui.output_ui("ap_cards"),
+                     figure_card("When each lobe becomes abnormal", ONSET_HELP,
+                                 ui.output_image("ap_onsets", height="auto"), figure_tools("ap_onsets")),
+                     figure_card("The trained model (PVD)", PVD_HELP, ui.output_image("ap_pvd", height="auto"),
+                                 figure_tools("ap_pvd"))),
         ui.nav_panel("Summary",
                      figure_card("People per group", COUNT_HELP, ui.output_image("ap_counts", height="auto"),
                                  figure_tools("ap_counts")),
                      ui.output_data_frame("ap_counts_table"), table_tools("ap_counts_csv")),
-        ui.nav_panel("The model", figure_card("The trained model (PVD)", PVD_HELP,
-                                              ui.output_image("ap_pvd", height="auto"), figure_tools("ap_pvd"))),
         ui.nav_panel("Cleanup", ui.output_ui("ap_cleanup_note"),
                      figure_card("Tau-positivity check", CLEAN_HELP, ui.output_image("ap_cleanup_plot", height="auto"),
                                  figure_tools("ap_cleanup_fig"))),
@@ -58,6 +73,7 @@ def server(input, output, session, shared):
 
     def run_method(method, cleanup, n_samples, poor_fit):
         """Normalize with one method and apply the model. Returns a dict (see the keys below)."""
+        n_samples = max(1, min(int(n_samples), N_SAVED))    # never more than the model has saved
         norm = shared["normalize_with"](method)
         z = norm["z"][~norm["left_out"]]
         if len(z) == 0:
@@ -174,17 +190,46 @@ def server(input, output, session, shared):
 
     add_table(report_items, "ap_counts_csv", "People per group", counts, in_report=True)
 
+    @render.ui
+    def ap_cards():
+        """One card per learned subtype: colour, name, share f and its lobes from first to last abnormal."""
+        shades = [mcolors.to_hex(c) for c in subtype_colors(len(SUBTYPE_NAMES))]
+        cards = []
+        for name, shade in zip(SUBTYPE_NAMES, shades):
+            order = ONSET_MEAN.loc[name].sort_values(kind="stable").index
+            cards.append(ui.div(
+                ui.div(name, class_="fw-bold", style=f"color:{shade};"),
+                ui.div(f"share in the model f = {SHARES[name]:.2f}", class_="small text-muted mb-1"),
+                ui.div(ui.strong("Starts in: "), ", ".join(nice_region(l) for l in order[:3]), class_="small"),
+                ui.div(ui.strong("Ends in: "), ", ".join(nice_region(l) for l in order[-2:]), class_="small"),
+                class_="tt-number", style=f"border-left:6px solid {shade};"))
+        return ui.TagList(ui.p(ui.strong("The model's learned subtypes "),
+                               ui.popover(ui.span("ⓘ", class_="text-primary", style="cursor:pointer;"), CARD_HELP)),
+                          ui.div(*cards, class_="tt-summary mb-3"))
+
+    def make_onsets():
+        return plot_lobe_onsets(ONSET_MEAN, ONSET_SD, PACKAGE["lobes"], PACKAGE["n_events"])
+
+    @render.image
+    def ap_onsets():
+        return as_picture(make_onsets())
+
+    add_figure(report_items, "ap_onsets", "When each lobe becomes abnormal (learned subtypes)", make_onsets,
+               in_report=True)
+
     def make_pvd():
+        """The model alone before 'Apply the model'; with the people's numbers after it."""
         res = result()
-        table = res["table"]
-        arrays = {"samples_sequence": PACKAGE["samples_sequence"], "samples_f": PACKAGE["samples_f"],
-                  "ml_subtype": (table["ml_subtype"].to_numpy() - 1).reshape(-1, 1),
-                  "ml_stage": table["ml_stage"].to_numpy().reshape(-1, 1)}
-        return plot_pvd(arrays, PACKAGE["Z_vals"], PACKAGE["lobes"], SUBTYPE_NAMES, None)
+        arrays = {"samples_sequence": PACKAGE["samples_sequence"], "samples_f": PACKAGE["samples_f"]}
+        if res is not None:
+            table = res["table"]
+            arrays.update(ml_subtype=(table["ml_subtype"].to_numpy() - 1).reshape(-1, 1),
+                          ml_stage=table["ml_stage"].to_numpy().reshape(-1, 1))
+        return plot_pvd(arrays, PACKAGE["Z_vals"], PACKAGE["lobes"], SUBTYPE_NAMES, None, people=res is not None)
 
     @render.image
     def ap_pvd():
-        return None if result() is None else as_picture(make_pvd())
+        return as_picture(make_pvd())
 
     add_figure(report_items, "ap_pvd", "The trained model (PVD)", make_pvd, in_report=True)
 
