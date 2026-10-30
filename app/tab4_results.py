@@ -1,21 +1,23 @@
 """Tab 4 - Results: explore the subtypes and stages found by the trained model."""
+import numpy as np
 import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
 
-from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
+from common import (CONFIG, PACKAGE, ROOT, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.brain import plot_brain_figure
 from src.figures import plot_cohort_subtypes, plot_person, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
-from src.figures_apply import plot_lobe_boxplots, plot_stage_histograms, score_cmap
+from src.figures_apply import boxplot_limits, plot_lobe_boxplots, plot_stage_histograms, score_cmap
+from src.hover_figure import hover_figure_html
 from src.results import subtype_summary
 
 HELP = {
     "patterns": "Average z-score of each lobe (rows) in each subtype (columns), tau+ people only "
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
     "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
-             "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range (-5 to "
-             "20, config.yaml) so the lobes can be compared.",
+             "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range - from the "
+             "lowest to the highest z-score of all lobes - so the lobes can be compared.",
     "brain": "The subtypes on the brain (Vogel et al. 2021 Fig. 1c/1e): top, each subtype's average z-score; "
              "bottom, each subtype through the stages (people in groups of five stages). Each lobe is drawn on its "
              "Desikan-Killiany regions; grey = below z 2.",
@@ -23,7 +25,9 @@ HELP = {
               "each person's stage (SD of their stage probabilities); dashed red = your limit.",
     "stage_hist": "The stages of each subtype's people.",
     "probs": "How clearly each tau+ person belongs to one subtype: each corner is a subtype; close to a corner = "
-             "clearly that subtype, towards the middle = a mix.",
+             "clearly that subtype, towards the middle = a mix. Move the mouse over a dot: the person, their two most "
+             "likely subtypes with probabilities, and their stage. Example data: also the true subtype, and a red "
+             "ring around people whose subtype differs from the truth.",
     "person": "One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
               "stage group (dots), their probability of each subtype, and of each stage.",
     "studies": "% of each study's people in S0 and each subtype. A subtype found in one study "
@@ -46,7 +50,7 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(ui.output_ui(
                  figure_card("Stages per subtype", HELP["stage_hist"], ui.output_image("rs_stage_hist", height="auto"),
                              figure_tools("rs_stage_hist"))),
     ui.nav_panel("Probabilities", figure_card("Subtype probabilities", HELP["probs"],
-                                              ui.output_image("rs_probs", height="auto"), figure_tools("rs_probs"))),
+                                              ui.output_ui("rs_probs"), figure_tools("rs_probs"))),
     ui.nav_panel("Per person", figure_card("One person", HELP["person"],
                                            ui.input_selectize("rs_person", "Person", choices=[]),
                                            ui.output_image("rs_person_plot", height="auto"), figure_tools("rs_person"))),
@@ -109,7 +113,7 @@ def server(input, output, session, shared):
     def make_boxes():
         r = res()
         return plot_lobe_boxplots(r["z"], r["table"], PACKAGE["lobes"], SUBTYPE_NAMES,
-                                  limits=tuple(CONFIG["app"]["boxplot_limits"]))
+                                  limits=boxplot_limits(r["z"], PACKAGE["lobes"], CONFIG["app"]["boxplot_limits"]))
 
     @render.image
     def rs_boxes():
@@ -152,9 +156,37 @@ def server(input, output, session, shared):
         r = res()
         return plot_subtype_probabilities(r["prob_subtype"], r["table"], SUBTYPE_NAMES)
 
-    @render.image
+    def true_subtypes():
+        """The example data's true subtype of each person (None for your own data)."""
+        if not shared["is_example"]():
+            return None
+        spec = CONFIG["app"]["sample_truth_columns"]
+        truth = pd.read_csv(ROOT / CONFIG["app"]["sample_truth"])
+        numbers = pd.Series(truth[spec["subtype"]].to_numpy(), index=truth[spec["id"]].astype(str))
+        return numbers.map(lambda n: "S0" if n == 0 else SUBTYPE_NAMES[int(n) - 1])
+
+    @render.ui
     def rs_probs():
-        return as_picture(make_probs()) if shown() else None
+        """On the page: the same picture, with the person under the mouse (example data: also the true subtype;
+        a red ring = a different subtype than the truth)."""
+        if not shown():
+            return None
+        r = res()
+        fig = make_probs()
+        ax, xy, rows = fig.tt_dots
+        table, truth = r["table"], true_subtypes()
+        tips, wrong = [], []
+        for row in rows:
+            person, p = table.index[row], r["prob_subtype"][row]
+            order = np.argsort(p)[::-1]
+            tip = (f"{person} · {SUBTYPE_NAMES[order[0]]} (P = {p[order[0]]:.2f}), next {SUBTYPE_NAMES[order[1]]} "
+                   f"({p[order[1]]:.2f}) · stage {int(table['ml_stage'].iloc[row])}")
+            true = truth.get(str(person)) if truth is not None else None
+            if true is not None:
+                tip += f" · true: {true}"
+            tips.append(tip)
+            wrong.append(true is not None and true != table["subtype"].iloc[row])
+        return ui.HTML(hover_figure_html(fig, ax, xy, tips, wrong, element_id="rs_probs_hover"))
 
     add_figure(report_items, "rs_probs", "Subtype probabilities", make_probs, in_report=True)
 
@@ -221,14 +253,19 @@ def server(input, output, session, shared):
 
     @reactive.effect
     def _person_choices():
-        """Tau+ people first (the first one shown), then the S0 people."""
+        """Everyone, grouped S0, Subtype 1, ... (within a group by stage); the first tau+ person is shown first."""
         res = result()
         if res is None:
             ui.update_selectize("rs_person", choices=[], selected=None)
             return
-        table = res["table"]
-        people = list(table.index[table["ml_stage"] > 0]) + list(table.index[table["ml_stage"] == 0])
-        ui.update_selectize("rs_person", choices=people, selected=people[0] if people else None)
+        table = res["table"].sort_values(["subtype_number", "ml_stage"], kind="stable")
+        choices = {}
+        for number, group in table.groupby("subtype_number", sort=True):
+            name = "S0" if number == 0 else SUBTYPE_NAMES[number - 1]
+            choices[f"{name} ({len(group)} people)"] = {str(i): f"{i} · stage {int(stage)}"
+                                                       for i, stage in group["ml_stage"].items()}
+        tau_pos = table.index[table["subtype_number"] > 0]
+        ui.update_selectize("rs_person", choices=choices, selected=str(tau_pos[0] if len(tau_pos) else table.index[0]))
 
     def make_person():
         res = result()

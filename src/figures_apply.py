@@ -215,6 +215,17 @@ def plot_z_histograms(z, lobes, cut_points=(2, 5, 10), training_z=None):
     return fig
 
 
+def boxplot_limits(z, lobes, setting="auto"):
+    """The y range of the box plots, the same for every lobe: setting "auto" = the lowest and highest z-score of all
+    lobes (plus a small margin), or a fixed [low, high] from config.yaml."""
+    if setting != "auto":
+        return tuple(setting)
+    values = z[lobes].to_numpy(float)
+    low, high = np.nanmin(values), np.nanmax(values)
+    margin = 0.03 * (high - low)
+    return low - margin, high + margin
+
+
 def plot_lobe_boxplots(z, table, lobes, names, colors=None, limits=None):
     """z-score of every lobe per group (S0 grey, then each subtype in its colour). limits: the same y range for
     every lobe (e.g. (-5, 20)), so the lobes can be compared; None = each lobe its own range."""
@@ -236,7 +247,7 @@ def plot_lobe_boxplots(z, table, lobes, names, colors=None, limits=None):
         if limits is not None:
             ax.set_ylim(*limits)
         ax.set_title(nice_region(lobe))
-        ax.set_xticks(range(1, len(groups) + 1), labels, rotation=40, ha="right", fontsize=7)
+        ax.set_xticks(range(1, len(groups) + 1), [label.replace(" ", "\n") for label in labels], fontsize=7)
         if ax.get_subplotspec().is_first_col():
             ax.set_ylabel("z-score")
     fig.tight_layout()

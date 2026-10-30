@@ -407,6 +407,7 @@ def plot_subtype_probabilities(prob_subtype, table, subtype_titles, seed=0, colo
     ax.set_aspect("equal")
     ax.axis("off")
     fig.tight_layout()
+    fig.tt_dots = (ax, xy, np.flatnonzero(tau_pos))      # where each tau+ person's dot is (for labels on the page)
     return fig
 
 
