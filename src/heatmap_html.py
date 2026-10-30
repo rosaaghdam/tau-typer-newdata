@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from src.figures import nice_region
-from src.figures_apply import HEAT_LABEL, heatmap_colors, heatmap_order
+from src.figures_apply import HEAT_LABEL, heatmap_colors, heatmap_order, heatmap_scale
 
 
 def matrix_heatmap_html(table, limits, colour_label, row_label, element_id, hover=True, height=560, label_size=11):
@@ -16,10 +16,13 @@ def matrix_heatmap_html(table, limits, colour_label, row_label, element_id, hove
     data = {"ids": [str(i) for i in table.index], "cols": [str(c) for c in table.columns],
             "values": [[None if np.isnan(v) else round(float(v), 3) for v in row] for row in values] if hover else [],
             "colors": heatmap_colors(values, limits).tolist(), "hover": hover}
-    steps = np.linspace(limits[0], limits[1], 11)
-    gradient = ", ".join(heatmap_colors(steps[::-1], limits).tolist())        # top of the bar = high
-    ticks = "".join(f'<span style="position:absolute; top:{100 * (limits[1] - t) / (limits[1] - limits[0]):.1f}%; '
-                    f'left:22px; transform:translateY(-50%);">{t:.3g}</span>' for t in np.linspace(*limits, 6))
+    cmap, norm = heatmap_scale(limits)
+    gradient = ", ".join("#%02x%02x%02x" % tuple(int(round(255 * v)) for v in cmap(p)[:3])
+                         for p in np.linspace(1, 0, 21))                       # top of the bar = high
+    tick_values = ([t for t in (limits[0], 0, 2, 5, limits[1]) if limits[0] <= t <= limits[1]]
+                   if limits[0] < 0 < limits[1] else np.linspace(*limits, 6))
+    ticks = "".join(f'<span style="position:absolute; top:{100 * (1 - float(norm(t))):.1f}%; left:22px; '
+                    f'transform:translateY(-50%);">{t:.3g}</span>' for t in tick_values)
     names = "".join(f'<div style="writing-mode:vertical-rl; transform:rotate(180deg); text-align:right; '
                     f'margin:4px auto 0; white-space:nowrap;">{name}</div>' for name in data["cols"])
     return f"""
@@ -72,6 +75,6 @@ def heatmap_html(z, lobes, limits, element_id="tt_heat"):
     rows = heatmap_order(z, lobes)
     table = z.loc[rows, lobes].copy()
     table.columns = [nice_region(l) for l in lobes]
-    return matrix_heatmap_html(table, limits, f"{HEAT_LABEL} (below {limits[0]:g} = lowest colour, above "
-                               f"{limits[1]:g} = darkest)", f"people (n = {len(rows)}), sorted by mean score "
+    return matrix_heatmap_html(table, limits, f"{HEAT_LABEL} (blue below 0, white at 0; beyond {limits[0]:g} and "
+                               f"{limits[1]:g} = end colours)", f"people (n = {len(rows)}), sorted by mean score "
                                "(lowest at the top)", element_id)

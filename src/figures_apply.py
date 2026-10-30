@@ -1,5 +1,6 @@
 """Figures of the new app (applying a trained model). Same look as src/figures.py (tau_typer.mplstyle)."""
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm, to_hex
 import numpy as np
 import pandas as pd
 
@@ -42,6 +43,19 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
 
 HEAT_CMAP = "OrRd"                         # near-white (low) -> orange (moderate) -> dark red (high)
 HEAT_LABEL = "Standardized regional score"
+# scores that can be negative: blue below 0, white at 0, then the same near-white -> orange -> dark red above 0
+# (TwoSlopeNorm puts 0 in the middle of the map: the lower half is blue -> white, the upper half white -> dark red)
+SCORE_CMAP = LinearSegmentedColormap.from_list(
+    "score", [(0.0, "#2166AC"), (0.25, "#92C5DE"), (0.5, "#FFFFFF")] +
+             [(0.5 + 0.5 * x, to_hex(plt.get_cmap(HEAT_CMAP)(0.1 + 0.9 * x))) for x in np.linspace(0.1, 1, 6)])
+
+
+def heatmap_scale(limits):
+    """(colour map, norm) of a heatmap with fixed limits: a scale that crosses 0 puts white at 0 (blue below,
+    orange-red above); a scale that stays above 0 (e.g. SUVR) is near-white -> dark red."""
+    if limits[0] < 0 < limits[1]:
+        return SCORE_CMAP, TwoSlopeNorm(vmin=limits[0], vcenter=0, vmax=limits[1])
+    return plt.get_cmap(HEAT_CMAP), plt.Normalize(*limits)
 
 
 def heatmap_order(z, lobes):
@@ -52,24 +66,26 @@ def heatmap_order(z, lobes):
 def heatmap_colors(values, limits):
     """Hex colour of every value on the fixed colour scale: values below the lower limit get the lowest
     colour, above the upper limit the highest (the same limits for every method, so colours compare fairly)."""
-    norm = plt.Normalize(*limits, clip=True)
-    rgba = plt.get_cmap(HEAT_CMAP)(norm(np.nan_to_num(np.asarray(values, float), nan=limits[0])))
+    cmap, norm = heatmap_scale(limits)
+    values = np.clip(np.nan_to_num(np.asarray(values, float), nan=limits[0]), *limits)
+    rgba = cmap(norm(values))
     return np.apply_along_axis(lambda c: "#%02x%02x%02x" % tuple(int(round(255 * v)) for v in c[:3]), -1, rgba)
 
 
-def plot_z_heatmap(z, lobes, limits=(0, 10), order=None):
+def plot_z_heatmap(z, lobes, limits=(-3, 10), order=None):
     """Every person's scores (rows, sorted by mean score, lowest at the top) per lobe (columns), on a FIXED
-    light-to-dark colour scale (limits): below the lower limit = the lowest colour, above the upper = the darkest."""
+    colour scale (limits): blue below 0, white at 0, orange to dark red above; beyond the limits = the end colours."""
     rows = heatmap_order(z, lobes) if order is None else order
+    cmap, norm = heatmap_scale(limits)
     fig, ax = plt.subplots(figsize=(0.55 * len(lobes) + 2.5, 6.5))
-    image = ax.imshow(z.loc[rows, lobes].to_numpy(float), aspect="auto", cmap=HEAT_CMAP, vmin=limits[0],
-                      vmax=limits[1], interpolation="nearest")
+    image = ax.imshow(z.loc[rows, lobes].to_numpy(float), aspect="auto", cmap=cmap, norm=norm, interpolation="nearest")
     ax.set_xticks(range(len(lobes)), [nice_region(l) for l in lobes], rotation=90)
     ax.set_yticks([])
     ax.set_ylabel(f"people (n = {len(rows)}), sorted by mean score (lowest at the top)")
     for side in ax.spines.values():
         side.set_visible(False)
     bar = fig.colorbar(image, ax=ax, fraction=0.08, pad=0.04, extend="both")
+    bar.set_ticks([t for t in (limits[0], 0, 2, 5, limits[1]) if limits[0] <= t <= limits[1]])
     style_colorbar(bar, HEAT_LABEL)
     fig.tight_layout()
     return fig
