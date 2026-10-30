@@ -40,21 +40,37 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
     return fig
 
 
-def plot_z_heatmap(z, lobes, vmin=0, vmax=10, order=None):
-    """Every person's z-scores (rows, sorted from least to most tau) per lobe (columns), as a
-    probability-map view with vmin 2 ... vmax 10: dark = far above normal."""
-    values = z[lobes]
-    rows = values.mean(axis=1).sort_values().index if order is None else order
+HEAT_CMAP = "OrRd"                         # near-white (low) -> orange (moderate) -> dark red (high)
+HEAT_LABEL = "Standardized regional score"
+
+
+def heatmap_order(z, lobes):
+    """The heatmap's row order: people sorted by their mean score over the lobes, lowest first (top)."""
+    return z[lobes].mean(axis=1).sort_values().index
+
+
+def heatmap_colors(values, limits):
+    """Hex colour of every value on the fixed colour scale: values below the lower limit get the lowest
+    colour, above the upper limit the highest (the same limits for every method, so colours compare fairly)."""
+    norm = plt.Normalize(*limits, clip=True)
+    rgba = plt.get_cmap(HEAT_CMAP)(norm(np.nan_to_num(np.asarray(values, float), nan=limits[0])))
+    return np.apply_along_axis(lambda c: "#%02x%02x%02x" % tuple(int(round(255 * v)) for v in c[:3]), -1, rgba)
+
+
+def plot_z_heatmap(z, lobes, limits=(0, 10), order=None):
+    """Every person's scores (rows, sorted by mean score, lowest at the top) per lobe (columns), on a FIXED
+    light-to-dark colour scale (limits): below the lower limit = the lowest colour, above the upper = the darkest."""
+    rows = heatmap_order(z, lobes) if order is None else order
     fig, ax = plt.subplots(figsize=(0.55 * len(lobes) + 2.5, 6.5))
-    image = ax.imshow(values.loc[rows].to_numpy(float), aspect="auto", cmap="magma_r", vmin=vmin, vmax=vmax,
-                      interpolation="nearest")
+    image = ax.imshow(z.loc[rows, lobes].to_numpy(float), aspect="auto", cmap=HEAT_CMAP, vmin=limits[0],
+                      vmax=limits[1], interpolation="nearest")
     ax.set_xticks(range(len(lobes)), [nice_region(l) for l in lobes], rotation=90)
     ax.set_yticks([])
-    ax.set_ylabel(f"people (n = {len(rows)}), least tau at the top")
+    ax.set_ylabel(f"people (n = {len(rows)}), sorted by mean score (lowest at the top)")
     for side in ax.spines.values():
         side.set_visible(False)
-    bar = fig.colorbar(image, ax=ax, fraction=0.08, pad=0.04)
-    style_colorbar(bar, "z-score")
+    bar = fig.colorbar(image, ax=ax, fraction=0.08, pad=0.04, extend="both")
+    style_colorbar(bar, HEAT_LABEL)
     fig.tight_layout()
     return fig
 

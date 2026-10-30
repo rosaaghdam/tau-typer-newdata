@@ -8,6 +8,7 @@ from common import (CONFIG, PACKAGE, add_figure, add_table, as_picture, figure_c
                     step_title, table_tools)
 from src.figures import plot_gmm_fit
 from src.figures_apply import plot_z_heatmap, plot_z_histograms
+from src.heatmap_html import heatmap_html
 from src.normalization import METHODS, normalize
 from src.trained_model import check_z
 
@@ -15,8 +16,11 @@ GMM_HELP = ("One lobe: histogram of the values the Gaussian mixture saw (the tra
             "people for 2) "
             "and its bell curves; green = normal. Dashed lines = the model's cut-points on the SUVR scale "
             "(normal mean + z x normal SD).")
-HEAT_HELP = ("Every person (row, least tau at the top) and lobe (column), coloured by z-score from 0 to 10 (as "
-             "a probability-map view). The model's events are at z 2, 5 and 10.")
+HEAT_LIMITS = tuple(CONFIG["app"]["heatmap_limits"])     # the same colour scale for every method (fair comparison)
+HEAT_HELP = ("Each row is one person, each column one lobe; rows are sorted by the person's mean score over the "
+             "lobes (lowest at the top). Colour = the standardized score on a fixed scale for every method: near-white "
+             "= low, orange = moderate, dark red = high. Scores below the lowest limit (e.g. negative) share the lowest "
+             "colour, scores above the highest the darkest. Move the mouse over a cell for the exact score.")
 HIST_HELP = "The z-scores of each lobe; dashed red lines = the model's cut-points (z 2, 5, 10)."
 
 
@@ -42,7 +46,7 @@ panel = ui.nav_panel(step_title(2, "Normalize", "nm_status"), ui.layout_sidebar(
                                  figure_tools("nm_gmm"))),
         ui.nav_panel("z-scores", figure_card("z-scores per lobe", HIST_HELP, ui.output_image("nm_hist", height="auto"),
                                              figure_tools("nm_hist")),
-                     figure_card("Heatmap of lobar z-scores (people sorted by mean z)", HEAT_HELP, ui.output_image("nm_heat", height="auto"),
+                     figure_card("Heatmap of lobar z-scores (people sorted by mean z)", HEAT_HELP, ui.output_ui("nm_heat"),
                                  figure_tools("nm_heat"))),
         ui.nav_panel("Table", ui.output_data_frame("nm_z_table"), table_tools("nm_z")))))
 
@@ -143,11 +147,14 @@ def server(input, output, session, shared):
     add_figure(report_items, "nm_hist", "z-scores per lobe", make_hist, in_report=True)
 
     def make_heat():
-        return plot_z_heatmap(normalized()["z"], PACKAGE["lobes"])
+        return plot_z_heatmap(normalized()["z"], PACKAGE["lobes"], HEAT_LIMITS)
 
-    @render.image
+    @render.ui
     def nm_heat():
-        return None if shared["lobes"]() is None else as_picture(make_heat())
+        """On the page: the same heatmap, drawn by the browser, with the exact score under the mouse."""
+        if shared["lobes"]() is None:
+            return None
+        return ui.HTML(heatmap_html(normalized()["z"], PACKAGE["lobes"], HEAT_LIMITS))
 
     add_figure(report_items, "nm_heat", "Heatmap of lobar z-scores (people sorted by mean z)", make_heat, in_report=True)
 

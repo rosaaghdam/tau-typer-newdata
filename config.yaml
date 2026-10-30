@@ -163,3 +163,4 @@ app:
   sample_truth_columns: {id: filename, subtype: true_subtype, stage: true_stage}
   suvr_min: 0.5                              # QC: SUVR outside this range is flagged
   suvr_max: 4.0
+  heatmap_limits: [0, 10]                    # step 2 heatmap colour scale, the same for every normalization method
