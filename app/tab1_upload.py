@@ -8,7 +8,7 @@ from shiny.types import SafeException
 from common import (CONFIG, PACKAGE, ROOT, TRAINING_LOBES, optional_input, as_picture, figure_card, figure_tools, add_figure,
                     add_table, step_status, step_title, table_tools)
 from src.figures import plot_missing
-from src.figures_apply import (plot_new_vs_training, plot_region_comparison, plot_region_pairs, plot_region_heatmaps, region_comparison,
+from src.figures_apply import (plot_new_vs_training, plot_region_boxplots, plot_region_comparison, plot_region_pairs, plot_region_heatmaps, region_comparison,
                                region_limits, region_order)
 from src.heatmap_html import matrix_heatmap_html
 from src.normalization import amyloid_negative, amyloid_positive
@@ -48,6 +48,11 @@ HELP = {
                       "people even a tiny difference can be 'significant'. Medium or large differences mean the test "
                       "SUVRs may be on another scale (tracer, reference region, processing) - consider normalization "
                       "method 2 or 3.",
+    "region_box": "Each region as two box plots, teal = test data, orange = the training cohort. Line in the box = "
+                  "the median (half of the people below, half above); box = the middle 50% of the people (25th to "
+                  "75th percentile); whiskers = the rest, up to 1.5 times the box length. Unlike mean +- SD, this "
+                  "shows the skewed shape of tau values (most people low, a tail of tau-positive people high). "
+                  "Single extreme people are not drawn.",
     "region_hist": "The distribution of each chosen region: filled = test data, outline = the training cohort, as % "
                    "of each group, so groups of different size compare. Six region pairs per row: the right "
                    "hemisphere above, its left partner right below (empty if not chosen). Two bumps are normal for "
@@ -94,7 +99,9 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                                  ui.output_image("up_region_hist", height="auto"), figure_tools("up_region_hist")),
                      figure_card("Each region: test data vs the training cohort", HELP["region_compare"],
                                  ui.output_image("up_region_compare", height="auto"), figure_tools("up_region_compare"),
-                                 ui.output_data_frame("up_region_table"), table_tools("up_region_csv"))),
+                                 ui.output_data_frame("up_region_table"), table_tools("up_region_csv")),
+                     figure_card("Each region as box plots: test data vs the training cohort", HELP["region_box"],
+                                 ui.output_image("up_region_box", height="auto"), figure_tools("up_region_box"))),
         ui.nav_panel("QC", ui.output_ui("up_qc_note"), ui.output_data_frame("up_qc"),
                      ui.h6("Inclusion rule", class_="mt-3"), ui.output_ui("up_rule_note"),
                      ui.output_data_frame("up_rule_table"), table_tools("up_rule_csv"),
@@ -413,6 +420,18 @@ def server(input, output, session, shared):
 
     add_figure(report_items, "up_region_compare", "Each region: test data vs the training cohort", make_region_compare,
                in_report=True)
+
+    def make_region_box():
+        if regional() is None:
+            raise SafeException("No usable data yet.")
+        return plot_region_boxplots(regional(), training_regional())
+
+    @render.image
+    def up_region_box():
+        return None if regional() is None else as_picture(make_region_box())
+
+    add_figure(report_items, "up_region_box", "Each region as box plots: test data vs the training cohort",
+               make_region_box)
 
     @render.data_frame
     def up_region_table():

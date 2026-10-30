@@ -27,7 +27,7 @@ def test_whole_app_with_the_example_data():
            "nm_normals", "nm_gmm", "nm_hist", "nm_heat", "nm_z_table",
            "up_format_check", "up_format_table", "up_qc_note",
            "up_region_heat", "up_region_compare", "up_region_table",
-           "up_region_hist")
+           "up_region_hist", "up_region_box")
         assert "530 of 530 rows kept" in str(ts.get_output("up_data_note").value)
         assert "All 64 regions match the input template" in str(ts.get_output("up_qc_note").value)
         qc = ts.get_output("up_qc").value["payload"]

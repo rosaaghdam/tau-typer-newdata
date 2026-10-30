@@ -357,6 +357,33 @@ def plot_region_comparison(table):
     return fig
 
 
+def plot_region_boxplots(new, training):
+    """Every region (training mean highest on top) as two box plots: the test data (teal) and the training cohort
+    (orange). Line in the box = median, box = middle 50% of the people (25th-75th percentile), whiskers = the
+    rest up to 1.5 x the box length. Single extreme people are not drawn (the training values stay private)."""
+    regions = region_order(training)
+    y = np.arange(len(regions))
+    fig, ax = plt.subplots(figsize=(10, 0.24 * len(regions) + 1.4))
+    for shift, table, color, label in ((-0.2, new, NEW_COLOR, "test data"),
+                                       (0.2, training, TRAINING_COLOR, "training cohort")):
+        parts = ax.boxplot([table[r].dropna() for r in regions], positions=y + shift, widths=0.34, vert=False,
+                           showfliers=False, patch_artist=True, manage_ticks=False)
+        for box in parts["boxes"]:
+            box.set(facecolor=color, alpha=0.35, edgecolor=color, linewidth=0.8)
+        for key in ("whiskers", "caps"):
+            for line in parts[key]:
+                line.set(color=color, linewidth=0.8)
+        for median in parts["medians"]:
+            median.set(color=color, linewidth=1.6)
+        ax.plot([], [], color=color, linewidth=6, alpha=0.5, label=label)       # legend entry
+    ax.set_yticks(y, regions, fontsize=8)
+    ax.set_ylim(len(regions) - 0.5, -0.5)
+    ax.set_xlabel("regional SUVR")
+    ax.legend(loc="lower right", fontsize=8, frameon=False)
+    fig.tight_layout()
+    return fig
+
+
 def plot_region_heatmaps(new, training, limits):
     """Your people (left) and the training cohort (right): regions (columns, training mean highest first) x people
     (rows, sorted by their mean, lowest at the top), on the same colour scale - as ESM_utils.Plot_Probabilites."""
