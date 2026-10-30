@@ -1,6 +1,5 @@
 """Tab 3 - Apply the trained model: pySuStaIn's subtype_and_stage_individuals_newData gives every person a
 subtype, a stage and their probabilities from the SAVED model. Nothing is trained."""
-import matplotlib.colors as mcolors
 import pandas as pd
 from shiny import reactive, render, ui
 from shiny.types import SafeException
@@ -8,14 +7,13 @@ from shiny.types import SafeException
 from common import (CONFIG, PACKAGE, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
 from src.compare import group_counts
-from src.figures import nice_region, plot_model_choice, plot_person, plot_pvd, subtype_colors
+from src.figures import plot_model_choice, plot_person, plot_pvd
 from src.figures_apply import plot_cleanup, plot_group_counts, plot_subtype_events
 from src.normalization import METHODS
-from src.trained_model import apply_model, clean_up, event_stages, label_table, lobe_onsets, tau_positive
+from src.trained_model import apply_model, clean_up, event_stages, label_table, tau_positive
 
 MODEL = CONFIG["model"]
 N_SAVED = PACKAGE["n_mcmc_samples"]                  # pySuStaIn would only repeat samples beyond this
-ONSET_MEAN, _, SHARES = lobe_onsets(PACKAGE)
 EVENTS = event_stages(PACKAGE)
 PVD_HELP = ("The trained model itself, drawn by pySuStaIn (positional variance diagram): rows = lobes, columns = "
             "stages; red = the lobe reaches z 2, magenta = z 5, blue = z 10. Dark = the event is (almost) always at "
@@ -31,12 +29,25 @@ LIKELIHOOD_HELP = ("The trained models' MCMC, as pySuStaIn saved it (samples_lik
                    "a flat line = the MCMC was stable. From the training, not from your data.")
 PERSON_HELP = ("One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
                "stage group (dots), their probability of each subtype, and of each stage.")
-CARD_HELP = ("One card per learned subtype: its share f in the model (mean over the MCMC samples; pySuStaIn spreads "
-             "the S0 people over the subtypes too), and its lobes ordered by when they first reach z 2.")
+CLEANUP_INFO = ("Some people get a subtype from small z-score bumps that are not real tau. This check looks at the "
+                "entorhinal cortex and precuneus (both sides), where tau appears early. For each of these regions a "
+                "Gaussian mixture fitted on the TRAINING cohort gives each person's probability of abnormal tau. A "
+                "person with a subtype but no region above %g is set to S0 (stage 0). Untick to keep pySuStaIn's "
+                "result as it is." % MODEL["cleanup"]["threshold"])
+POOR_INFO = ("pySuStaIn gives every person a probability for each subtype (together they add up to 1), and the "
+             "person gets the most likely one. If that highest probability is below this value, the person is "
+             "marked 'poor fit'. Example: 0.1, 0.2, 0.4, 0.3 - the highest is 0.4, below 0.5, so poor fit. The "
+             "person keeps the subtype (it is only flagged); S0 people are never flagged. Paper: 0.5.")
 COUNT_HELP = "People per group: before the false-positive check and after it (if chosen)."
 CLEAN_HELP = ("False-positive check: for entorhinal and precuneus (both sides) a Gaussian mixture "
               "fitted on the TRAINING cohort gives each person's probability of abnormal tau. People with a subtype "
               "but no region above the threshold are set to S0 (stage 0).")
+
+
+def info_button(title, text):
+    """An (i) button next to a setting that shows its explanation."""
+    return ui.popover(ui.tags.button("ⓘ", type="button", class_="btn btn-link btn-sm p-0",
+                                     **{"aria-label": f"About: {title}"}), text, title=title, placement="right")
 
 
 def tile(value, label):
@@ -47,9 +58,11 @@ def tile(value, label):
 panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sidebar(
     ui.sidebar(
         ui.output_ui("ap_method_note"),
-        ui.input_checkbox("ap_cleanup", "False-positive check (entorhinal / precuneus)", value=True),
-        ui.input_numeric("ap_poor", "Poor fit: subtype probability below", value=MODEL["poor_fit_threshold"],
-                         min=0, max=1, step=0.05),
+        ui.div(ui.input_checkbox("ap_cleanup", "False-positive check (entorhinal / precuneus)", value=True),
+               info_button("False-positive check", CLEANUP_INFO), class_="d-flex align-items-start gap-1"),
+        ui.div(ui.tags.label("Poor fit: subtype probability below", **{"for": "ap_poor"}),
+               info_button("Poor fit", POOR_INFO), class_="d-flex align-items-start gap-1 mb-1"),
+        ui.input_numeric("ap_poor", None, value=MODEL["poor_fit_threshold"], min=0, max=1, step=0.05),
         ui.input_numeric("ap_samples", "MCMC samples used", value=min(MODEL["n_samples"], N_SAVED), min=1,
                          max=N_SAVED, step=1 if N_SAVED < 1000 else 100),
         ui.p(f"At most {N_SAVED}: the number of samples saved in the trained model.", class_="small text-muted"),
@@ -59,7 +72,7 @@ panel = ui.nav_panel(step_title(3, "Apply model", "ap_status"), ui.layout_sideba
     ui.output_ui("ap_model_info"),
     ui.output_ui("ap_result_note"),
     ui.navset_tab(
-        ui.nav_panel("Learned subtypes", ui.output_ui("ap_cards"),
+        ui.nav_panel("Learned subtypes",
                      figure_card("Events of each subtype", EVENTS_HELP,
                                  ui.input_slider("ap_stage", "Stage", min=0, max=PACKAGE["n_events"], value=6, step=1),
                                  ui.output_image("ap_events", height="auto"), figure_tools("ap_events")),
@@ -205,23 +218,6 @@ def server(input, output, session, shared):
         return None if result() is None else render.DataGrid(counts().rename_axis("group").reset_index())
 
     add_table(report_items, "ap_counts_csv", "People per group", counts, in_report=True)
-
-    @render.ui
-    def ap_cards():
-        """One card per learned subtype: colour, name, share f and its lobes from first to last abnormal."""
-        shades = [mcolors.to_hex(c) for c in subtype_colors(len(SUBTYPE_NAMES))]
-        cards = []
-        for name, shade in zip(SUBTYPE_NAMES, shades):
-            order = ONSET_MEAN.loc[name].sort_values(kind="stable").index
-            cards.append(ui.div(
-                ui.div(name, class_="fw-bold", style=f"color:{shade};"),
-                ui.div(f"share in the model f = {SHARES[name]:.2f}", class_="small text-muted mb-1"),
-                ui.div(ui.strong("Starts in: "), ", ".join(nice_region(l) for l in order[:3]), class_="small"),
-                ui.div(ui.strong("Ends in: "), ", ".join(nice_region(l) for l in order[-2:]), class_="small"),
-                class_="tt-number", style=f"border-left:6px solid {shade};"))
-        return ui.TagList(ui.p(ui.strong("The model's learned subtypes "),
-                               ui.popover(ui.span("ⓘ", class_="text-primary", style="cursor:pointer;"), CARD_HELP)),
-                          ui.div(*cards, class_="tt-summary mb-3"))
 
     def make_events():
         stage = optional_input(input, "ap_stage")

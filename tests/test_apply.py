@@ -148,15 +148,6 @@ def test_lobe_order_is_fixed_by_the_model(package, new):
                                 "L_Occipital", "R_Occipital", "L_Frontal", "R_Frontal"]   # as the original notebook
 
 
-def test_lobe_onsets_follow_the_samples(package):
-    """lobe_onsets: one row per subtype (pySuStaIn's order), stages within 1..n_events, shares as in samples_f."""
-    from src.trained_model import lobe_onsets
-    means, sds, shares = lobe_onsets(package)
-    assert list(means.index) == package["subtype_names"] and list(means.columns) == package["lobes"]
-    assert means.min().min() >= 1 and means.max().max() <= package["n_events"] and (sds >= 0).all().all()
-    assert np.allclose(sorted(shares, reverse=True), sorted(package["samples_f"].mean(axis=1), reverse=True))
-
-
 def test_mcmc_likelihoods_of_every_model(tmp_path):
     """mcmc_likelihoods: one trace per saved model (..._subtype0 = 1 subtype, ...); models without
     samples_likelihood are skipped."""

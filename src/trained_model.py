@@ -89,24 +89,6 @@ def event_stages(package):
     return out
 
 
-def lobe_onsets(package):
-    """When each lobe becomes abnormal in each learned subtype: the stage at which the lobe reaches the first
-    cut-point (z 2), over the saved MCMC samples. Returns (mean, SD, share f): rows = subtypes in pySuStaIn's
-    order (= subtype_names, largest share f first), columns = lobes."""
-    Z_vals, lobes = package["Z_vals"], package["lobes"]
-    names = event_names(Z_vals, lobes)
-    first_events = [names.index(f"{lobe} z{Z_vals[i, 0]:g}") for i, lobe in enumerate(lobes)]
-    shares = package["samples_f"].mean(axis=1)
-    by_f = np.argsort(shares)[::-1]                         # pySuStaIn's numbering of the subtypes
-    means, sds = {}, {}
-    for name, s in zip(package["subtype_names"], by_f):
-        positions = np.argsort(package["samples_sequence"][s], axis=0)     # events x samples: position of each event
-        stages = positions[first_events] + 1                               # stage = position + 1
-        means[name], sds[name] = stages.mean(axis=1), stages.std(axis=1)
-    return (pd.DataFrame(means, index=lobes).T, pd.DataFrame(sds, index=lobes).T,
-            pd.Series(shares[by_f], index=package["subtype_names"]))
-
-
 def required_regions(package, cleanup_regions):
     """The FreeSurfer regions the app needs from an upload: those of the lobes, then the cleanup ones."""
     needed = [roi for lobe in package["lobes"] for roi in package["regions"][lobe]]
