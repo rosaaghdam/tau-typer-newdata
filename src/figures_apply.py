@@ -224,3 +224,76 @@ def plot_cleanup(p, threshold):
     ax.legend(loc="center right")
     fig.tight_layout()
     return fig
+
+
+def region_order(training):
+    """Region (column) order of the regional heatmaps, as ESM_utils.Plot_Probabilites: the training cohort's
+    mean value per region, highest first. The same order for your data and the training data."""
+    return training.mean(axis=0).sort_values(ascending=False).index.tolist()
+
+
+def region_limits(training, low=1, high=99):
+    """Colour limits of the regional heatmaps: the training cohort's 1st and 99th percentile of all regional values,
+    the same for both heatmaps so the colours compare fairly."""
+    values = training.to_numpy(float).ravel()
+    return tuple(float(np.round(np.nanpercentile(values, q), 2)) for q in (low, high))
+
+
+def region_comparison(new, training):
+    """Per region: your people's and the training cohort's mean (SD), the difference and the standardized
+    difference (Cohen's d with the pooled SD). |d| >= 0.5 = a medium difference: check the scale of your data."""
+    rows = []
+    for region in region_order(training):
+        a, b = new[region].dropna(), training[region].dropna()
+        pooled = np.sqrt(((len(a) - 1) * a.var() + (len(b) - 1) * b.var()) / (len(a) + len(b) - 2))
+        d = (a.mean() - b.mean()) / pooled
+        rows.append({"region": region, "your mean": a.mean(), "your SD": a.std(), "training mean": b.mean(),
+                     "training SD": b.std(), "difference": a.mean() - b.mean(), "Cohen's d": d,
+                     "size": "large" if abs(d) >= 0.8 else "medium" if abs(d) >= 0.5 else
+                             "small" if abs(d) >= 0.2 else "negligible"})
+    return pd.DataFrame(rows).set_index("region").round(3)
+
+
+def plot_region_comparison(table):
+    """Left: mean +- SD of every region, your people (teal) and the training cohort (orange). Right: the
+    standardized difference (Cohen's d), shaded |d| < 0.2 (negligible) and dashed at +-0.5 (medium)."""
+    regions = table.index.tolist()
+    y = np.arange(len(regions))
+    fig, (left, right) = plt.subplots(1, 2, figsize=(10, 0.17 * len(regions) + 1.6), sharey=True,
+                                      gridspec_kw={"width_ratios": [3, 2]})
+    for shift, prefix, color, label in ((-0.18, "your", NEW_COLOR, "your data"),
+                                        (0.18, "training", TRAINING_COLOR, "training cohort")):
+        left.errorbar(table[f"{prefix} mean"], y + shift, xerr=table[f"{prefix} SD"], fmt="o", ms=3, lw=0.8,
+                      color=color, label=label)
+    left.set_yticks(y, [nice_region(r) for r in regions], fontsize=7)
+    left.invert_yaxis()
+    left.set_xlabel("regional SUVR (mean ± SD)")
+    left.legend(loc="lower right", fontsize=7, frameon=False)
+    d = table["Cohen's d"].astype(float)
+    right.axvspan(-0.2, 0.2, color="#E4E7EB", lw=0)
+    for x in (-0.5, 0.5):
+        right.axvline(x, ls="--", lw=0.8, color="#9AA5B1")
+    right.axvline(0, lw=0.8, color="#52606D")
+    right.scatter(d, y, s=12, color=np.where(d.abs() >= 0.5, "#C62828", NEW_COLOR), zorder=3)
+    right.set_xlabel("standardized difference (Cohen's d)\nyour data - training")
+    fig.tight_layout()
+    return fig
+
+
+def plot_region_heatmaps(new, training, limits):
+    """Your people (left) and the training cohort (right): regions (columns, training mean highest first) x people
+    (rows, sorted by their mean, lowest at the top), on the same colour scale - as ESM_utils.Plot_Probabilites."""
+    order = region_order(training)
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=False)
+    for ax, table, title in ((axes[0], new, f"your data (n = {len(new)})"),
+                             (axes[1], training, f"training cohort (n = {len(training)})")):
+        rows = table[order].mean(axis=1).sort_values().index
+        image = ax.imshow(table.loc[rows, order].to_numpy(float), aspect="auto", cmap=HEAT_CMAP, vmin=limits[0],
+                          vmax=limits[1], interpolation="nearest")
+        ax.set_xticks(range(len(order)), order, rotation=90, fontsize=5)
+        ax.set_yticks([])
+        ax.set_title(title)
+        ax.set_ylabel("people, sorted by mean (lowest at the top)")
+    bar = fig.colorbar(image, ax=axes, fraction=0.03, pad=0.02, extend="both")
+    style_colorbar(bar, "regional SUVR")
+    return fig

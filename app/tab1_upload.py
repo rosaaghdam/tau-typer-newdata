@@ -8,7 +8,9 @@ from shiny.types import SafeException
 from common import (CONFIG, PACKAGE, ROOT, TRAINING_LOBES, optional_input, as_picture, figure_card, figure_tools, add_figure,
                     add_table, step_status, step_title, table_tools)
 from src.figures import plot_missing
-from src.figures_apply import plot_new_vs_training
+from src.figures_apply import (plot_new_vs_training, plot_region_comparison, plot_region_heatmaps, region_comparison,
+                               region_limits, region_order)
+from src.heatmap_html import matrix_heatmap_html
 from src.normalization import amyloid_negative, amyloid_positive
 from src.input_format import check_format, input_format, template_table
 from src.qc import apply_inclusion_rule, demographics_table, guess_columns, qc_summary
@@ -32,6 +34,15 @@ HELP = {
     "format": "Fill in the template (button in the sidebar): one row per scan, the region columns named "
               "exactly as below, values = regional SUVRs. Optional columns can be left out. Other spellings "
               "of a region (e.g. CTX_LH_ENTORHINAL) are still recognized, but shown as a warning.",
+    "region_heat": "Every region the model uses (columns) for every person (rows), as in the original analysis "
+                   "code: regions ordered by the training cohort's mean (highest left), people by their own mean "
+                   "(lowest at the top). Both heatmaps use the same colour scale (the training cohort's 1st-99th "
+                   "percentile), so similar data look alike. Move the mouse over your heatmap for the exact SUVR; the "
+                   "training cohort's individual values are not shown.",
+    "region_compare": "Each region: mean +- SD of your people and of the training cohort, and the standardized "
+                      "difference (Cohen's d = difference / pooled SD). |d| < 0.2 negligible, 0.2-0.5 small, "
+                      "0.5-0.8 medium (red dot), >= 0.8 large. Medium or large differences mean your SUVRs may be on "
+                      "another scale (tracer, reference region, processing) - consider normalization method 2 or 3.",
     "missing": "Every column with missing values (most missing on top) against every row (dark = missing).",
 }
 
@@ -61,7 +72,12 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
         ui.nav_panel("Data", ui.output_ui("up_data_note"), ui.output_data_frame("up_head")),
         ui.nav_panel("Region matching", ui.output_ui("up_match_note"),
                      figure_card("The model's regions in your file", HELP["matching"],
-                                 ui.output_data_frame("up_match_table"), table_tools("up_match"))),
+                                 ui.output_data_frame("up_match_table"), table_tools("up_match")),
+                     figure_card("Regional heatmaps: your data and the training cohort", HELP["region_heat"],
+                                 ui.output_ui("up_region_heat"), figure_tools("up_region_heat")),
+                     figure_card("Each region: your data vs the training cohort", HELP["region_compare"],
+                                 ui.output_image("up_region_compare", height="auto"), figure_tools("up_region_compare"),
+                                 ui.output_data_frame("up_region_table"), table_tools("up_region_csv"))),
         ui.nav_panel("QC", ui.output_ui("up_qc_note"), ui.output_data_frame("up_qc"),
                      ui.h6("Inclusion rule", class_="mt-3"), ui.output_ui("up_rule_note"),
                      ui.output_data_frame("up_rule_table"), table_tools("up_rule_csv"),
@@ -315,6 +331,52 @@ def server(input, output, session, shared):
         return values
 
     shared["regional"] = regional
+
+    def training_regional():
+        """The training cohort's values of the regions the model uses (stays on the server)."""
+        return PACKAGE["reference"][needed()]
+
+    @render.ui
+    def up_region_heat():
+        """Two heatmaps side by side: yours (exact value on hover) and the training cohort's (colours only)."""
+        values = regional()
+        if values is None:
+            return None
+        training, order = training_regional(), region_order(training_regional())
+        limits = region_limits(training)
+        yours = values[order].loc[values[order].mean(axis=1).sort_values().index]
+        theirs = training[order].loc[training[order].mean(axis=1).sort_values().index]
+        return ui.TagList(
+            ui.h6(f"Your data (n = {len(yours)})"),
+            ui.HTML(matrix_heatmap_html(yours, limits, "regional SUVR", "people, sorted by mean (lowest at the top)",
+                                        "tt_region_new", height=420, label_size=9)),
+            ui.h6(f"Training cohort (n = {len(theirs)})", class_="mt-4"),
+            ui.HTML(matrix_heatmap_html(theirs, limits, "regional SUVR", "people, sorted by mean (lowest at the top)",
+                                        "tt_region_training", hover=False, height=420, label_size=9)))
+
+    add_figure(report_items, "up_region_heat", "Regional heatmaps: your data and the training cohort",
+               lambda: plot_region_heatmaps(regional(), training_regional(), region_limits(training_regional())))
+
+    def region_table():
+        if regional() is None:
+            raise SafeException("No usable data yet.")
+        return region_comparison(regional(), training_regional())
+
+    def make_region_compare():
+        return plot_region_comparison(region_table())
+
+    @render.image
+    def up_region_compare():
+        return None if regional() is None else as_picture(make_region_compare())
+
+    add_figure(report_items, "up_region_compare", "Each region: your data vs the training cohort", make_region_compare,
+               in_report=True)
+
+    @render.data_frame
+    def up_region_table():
+        return None if regional() is None else render.DataGrid(region_table().reset_index(), height="420px")
+
+    add_table(report_items, "up_region_csv", "Each region: your data vs the training cohort", region_table)
 
     @reactive.calc
     def lobes():
