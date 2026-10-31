@@ -19,7 +19,7 @@ EVENTS = event_stages(PACKAGE)
 PVD_HELP = ("The trained model itself, drawn by pySuStaIn (positional variance diagram): rows = lobes, columns = "
             "stages; red = the lobe reaches z 2, magenta = z 5, blue = z 10. Dark = the event is (almost) always at "
             "that stage in the model's MCMC samples. f = the subtype's share in the model; after 'Apply the model' "
-            "also n and tau+ = your people assigned to the subtype.")
+            "also n and tau+ = test cohort people assigned to the subtype.")
 EVENTS_HELP = ("Each learned subtype: every lobe's events - circle = the lobe reaches z 2, diamond = z 5, square = "
                "z 10 - at the stage where the model puts them (mean over its saved MCMC samples). Move the slider to "
                "a stage: events reached by then are solid, later ones faint, so you can see how far tau has spread "
@@ -27,7 +27,7 @@ EVENTS_HELP = ("Each learned subtype: every lobe's events - circle = the lobe re
 LIKELIHOOD_HELP = ("The trained models' MCMC, as pySuStaIn saved it (samples_likelihood), one per number of "
                    "subtypes. Left: mean log-likelihood per number of subtypes (higher = fits the training cohort "
                    "better, but it always rises with more subtypes). Right: the log-likelihood of every MCMC sample; "
-                   "a flat line = the MCMC was stable. From the training, not from the test data.")
+                   "a flat line = the MCMC was stable. From the training, not from the test cohort.")
 BRAIN_HELP = ("One learned subtype on 3D brains (left and right, outside and inside views), one row per stage: each "
               "lobe's cortex regions are coloured by the highest cut-point the lobe has reached by then in the model "
               "(grey = not yet; light blue z 2, blue z 5, dark blue z 10; white = regions in no lobe of the model). "
@@ -176,7 +176,8 @@ def server(input, output, session, shared):
 
     @render.ui
     def ap_model_info():
-        return ui.TagList(ui.div(
+        return ui.TagList(ui.h6(f"Training cohort: the trained model ({len(PACKAGE['reference'])} people)",
+                                class_="mt-1 fw-bold"), ui.div(
             tile(PACKAGE["n_subtypes"], "subtypes"), tile(PACKAGE["n_events"], "events (stages 0-%d)" % PACKAGE["n_events"]),
             tile(len(PACKAGE["lobes"]), "lobes"), tile(PACKAGE["n_mcmc_samples"], "saved MCMC samples"),
             class_="tt-summary"))
@@ -188,7 +189,7 @@ def server(input, output, session, shared):
             return ui.div("Press 'Apply the model' (left).", class_="alert alert-info") \
                 if shared["lobes"]() is not None else ui.div("Finish steps 1 and 2 first.", class_="alert alert-info")
         table = res["table"]
-        parts = [ui.div(tile(len(table), "people"), tile(int((table["ml_stage"] > 0).sum()), "tau+ (stage > 0)"),
+        parts = [ui.h6("Test cohort: this run", class_="mt-3 fw-bold"), ui.div(tile(len(table), "people"), tile(int((table["ml_stage"] > 0).sum()), "tau+ (stage > 0)"),
                         tile(int((table["subtype_number"] == 0).sum()), "S0"),
                         tile(int(table["poor_fit"].sum()), "poor fit"),
                         tile(int(table.get("cleaned", pd.Series(False)).sum()), "set to S0 by cleanup"),

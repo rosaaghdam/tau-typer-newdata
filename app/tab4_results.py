@@ -24,13 +24,13 @@ HELP = {
                     "method 1, the settings of your run): % of its tau+ people at each stage, by subtype. Only group "
                     "numbers - no single training person is shown. Move the mouse over a bar piece for its number.",
     "boxes_train": "The same box plots for the training cohort (the trained model applied to its own people, "
-                   "normalization method 1, the settings of your run). The y range is shared with the test data's figure.",
+                   "normalization method 1, the settings of your run). The y range is shared with the test cohort's figure.",
     "patterns_train": "The same for the training cohort: the trained model applied to its own people (normalization "
-                      "method 1, the settings of your run). Group averages only. The same colour scale as the test data.",
+                      "method 1, the settings of your run). Group averages only. The same colour scale as the test cohort.",
     "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
              "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range - from the "
-             "lowest to the highest z-score of all lobes (the test data's and the training cohort's) - so the lobes and the two figures can be compared.",
-    "trajectory": "One subtype in the test data on 3D brains (left and right, outside and inside views): top row, the "
+             "lowest to the highest z-score of all lobes (the test cohort's and the training cohort's) - so the lobes and the two figures can be compared.",
+    "trajectory": "One subtype in the test cohort on 3D brains (left and right, outside and inside views): top row, the "
                   "average z-score of all its tau+ people; below, the people in each stage group (1-6, 7-12, ...), so "
                   "you can follow tau spreading. Each lobe is coloured on its cortex regions: grey = below z 2 (normal), "
                   "light to dark blue = z 2 to 10; white = regions in no lobe of the model. Hippocampus and amygdala lie "
@@ -44,7 +44,7 @@ HELP = {
              "likely subtypes with probabilities, and their stage. The table below lists the people whose subtype is "
              "least clear (probability below your limit) with their second most likely subtype. Example data: also "
              "the true subtype.",
-    "person": "One person: their z-score per lobe (bars) next to the average of your people in the same subtype and "
+    "person": "One person: their z-score per lobe (bars) next to the average of the test cohort people in the same subtype and "
               "stage group (dots); their probability of each of the 5 groups - S0 (stage 0) and Subtypes 1-4 (a "
               "stage above 0), together 1 - and of each stage. The false-positive check (step 3) can still move a "
               "person with a subtype to S0.",
@@ -55,7 +55,7 @@ HELP = {
 def side_by_side(yours, yours_csv, training, training_csv):
     """Two tables next to each other: your data (left) and the training cohort (right)."""
     return ui.layout_columns(
-        ui.card(ui.card_header("Test data"), ui.output_data_frame(yours), table_tools(yours_csv)),
+        ui.card(ui.card_header("Test cohort"), ui.output_data_frame(yours), table_tools(yours_csv)),
         ui.card(ui.card_header("Training cohort"), ui.output_data_frame(training), table_tools(training_csv)),
         col_widths=[6, 6], class_="mt-2")
 
@@ -68,13 +68,13 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(
     ui.nav_panel("Overview", ui.output_ui("rs_training_note"),
                  side_by_side("rs_summary", "rs_summary_csv", "rs_summary_train", "rs_summary_train_csv"),
                  ui.layout_columns(
-                     figure_card("Tau pattern of each subtype: test data", HELP["patterns"],
+                     figure_card("Tau pattern of each subtype: test cohort", HELP["patterns"],
                                  ui.output_image("rs_patterns", height="auto"), figure_tools("rs_patterns")),
                      figure_card("Tau pattern of each subtype: training cohort", HELP["patterns_train"],
                                  ui.output_image("rs_patterns_train", height="auto"), figure_tools("rs_patterns_train")),
                      col_widths=[6, 6])),
     ui.nav_panel("Lobes per subtype",
-                 figure_card("z-scores per group: test data", HELP["boxes"],
+                 figure_card("z-scores per group: test cohort", HELP["boxes"],
                              ui.output_image("rs_boxes", height="auto"), figure_tools("rs_boxes")),
                  figure_card("z-scores per group: training cohort", HELP["boxes_train"],
                              ui.output_image("rs_boxes_train", height="auto"), figure_tools("rs_boxes_train"))),

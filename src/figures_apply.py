@@ -22,12 +22,12 @@ def _panels(lobes, width=2.9, height=2.3):
 
 
 def _test_vs_training_hist(ax, new, old, title, xlabel):
-    """One panel: the test data (filled) and the training cohort (outline), as % of each group."""
+    """One panel: the test cohort (filled) and the training cohort (outline), as % of each group."""
     bins = np.histogram_bin_edges(pd.concat([new, old]), bins=40)
     ax.hist(old, bins=bins, weights=np.full(len(old), 100 / max(len(old), 1)), histtype="step", lw=1.4,
             color=TRAINING_COLOR, label=f"training (n={len(old)})")
     ax.hist(new, bins=bins, weights=np.full(len(new), 100 / max(len(new), 1)), color=NEW_COLOR, alpha=0.55,
-            label=f"test data (n={len(new)})")
+            label=f"test cohort (n={len(new)})")
     ax.set_title(title, fontsize=8)
     ax.set_xlabel(xlabel, fontsize=7)
 
@@ -49,7 +49,7 @@ def region_pairs(regions):
 
 
 def plot_region_pairs(new, training, chosen, all_regions, per_row=6, xlabel="regional SUVR"):
-    """Histograms of the chosen regions, test data vs the training cohort: per_row region pairs per row, the RIGHT
+    """Histograms of the chosen regions, test cohort vs the training cohort: per_row region pairs per row, the RIGHT
     region above its LEFT partner (the same column); a cell stays empty when that side is not chosen."""
     pairs = [pair for pair in region_pairs(all_regions) if set(pair) & set(chosen)]
     n_cols = min(per_row, len(pairs))
@@ -74,7 +74,7 @@ def plot_region_pairs(new, training, chosen, all_regions, per_row=6, xlabel="reg
 
 
 def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (mean SUVR of its regions)"):
-    """For every lobe: the distribution of your people (filled) and of the model's
+    """For every lobe: the distribution of the test cohort (filled) and of the model's
     training cohort (outline), as % of each group - do your values sit on the same scale?"""
     fig, axes, cells = _panels(lobes)
     for ax, lobe in zip(axes.flat, cells):
@@ -86,7 +86,7 @@ def plot_new_vs_training(new_lobes, training_lobes, lobes, xlabel="lobe value (m
         ax.hist(old, bins=bins, weights=np.full(len(old), 100 / max(len(old), 1)), histtype="step", lw=1.6,
                 color=TRAINING_COLOR, label=f"training (n={len(old)})")
         ax.hist(new, bins=bins, weights=np.full(len(new), 100 / max(len(new), 1)), color=NEW_COLOR, alpha=0.55,
-                label=f"test data (n={len(new)})")
+                label=f"test cohort (n={len(new)})")
         ax.set_title(nice_region(lobe))
         ax.set_xlabel(xlabel, fontsize=7)
         if ax.get_subplotspec().is_first_col():
@@ -405,7 +405,7 @@ def plot_scan_check(person, p_row, threshold, before, after):
 
 def region_order(training):
     """Region (column) order of the regional heatmaps, as ESM_utils.Plot_Probabilites: the training cohort's
-    mean value per region, highest first. The same order for the test data and the training data."""
+    mean value per region, highest first. The same order for the test cohort and the training cohort."""
     return training.mean(axis=0).sort_values(ascending=False).index.tolist()
 
 
@@ -417,7 +417,7 @@ def region_limits(training, low=1, high=99):
 
 
 def region_comparison(new, training):
-    """Per region: the test data's and the training cohort's mean (SD), the difference, the standardized
+    """Per region: the test cohort's and the training cohort's mean (SD), the difference, the standardized
     difference (Cohen's d = difference / pooled SD) with its size (|d| < 0.2 negligible, 0.2-0.5 small,
     0.5-0.8 medium, >= 0.8 large; Cohen 1988), and the p-value of a Welch t-test (unequal variances), also
     FDR-corrected over all regions (Benjamini-Hochberg). With many people even a tiny difference has a small p:
@@ -440,12 +440,12 @@ def region_comparison(new, training):
 
 
 def plot_region_comparison(table):
-    """Every region: the test data (teal) and the training cohort (orange). Dot = the mean SUVR of all people,
+    """Every region: the test cohort (teal) and the training cohort (orange). Dot = the mean SUVR of all people,
     line = from mean - 1 SD to mean + 1 SD (where about two thirds of the people lie)."""
     regions = table.index.tolist()
     y = np.arange(len(regions))
     fig, ax = plt.subplots(figsize=(10, 0.2 * len(regions) + 1.4))
-    for shift, prefix, color, label in ((-0.18, "test", NEW_COLOR, "test data"),
+    for shift, prefix, color, label in ((-0.18, "test", NEW_COLOR, "test cohort"),
                                         (0.18, "training", TRAINING_COLOR, "training cohort")):
         ax.errorbar(table[f"{prefix} mean"], y + shift, xerr=table[f"{prefix} SD"], fmt="o", ms=4, lw=1,
                     color=color, label=label)
@@ -458,13 +458,13 @@ def plot_region_comparison(table):
 
 
 def plot_region_boxplots(new, training):
-    """Every region (training mean highest on top) as two box plots: the test data (teal) and the training cohort
+    """Every region (training mean highest on top) as two box plots: the test cohort (teal) and the training cohort
     (orange). Line in the box = median, box = middle 50% of the people (25th-75th percentile), whiskers = the
     rest up to 1.5 x the box length. Single extreme people are not drawn (the training values stay private)."""
     regions = region_order(training)
     y = np.arange(len(regions))
     fig, ax = plt.subplots(figsize=(10, 0.24 * len(regions) + 1.4))
-    for shift, table, color, label in ((-0.2, new, NEW_COLOR, "test data"),
+    for shift, table, color, label in ((-0.2, new, NEW_COLOR, "test cohort"),
                                        (0.2, training, TRAINING_COLOR, "training cohort")):
         parts = ax.boxplot([table[r].dropna() for r in regions], positions=y + shift, widths=0.34, vert=False,
                            showfliers=False, patch_artist=True, manage_ticks=False)
@@ -485,11 +485,11 @@ def plot_region_boxplots(new, training):
 
 
 def plot_region_heatmaps(new, training, limits):
-    """Your people (left) and the training cohort (right): regions (columns, training mean highest first) x people
+    """The test cohort (left) and the training cohort (right): regions (columns, training mean highest first) x people
     (rows, sorted by their mean, lowest at the top), on the same colour scale - as ESM_utils.Plot_Probabilites."""
     order = region_order(training)
     fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=False)
-    for ax, table, title in ((axes[0], new, f"test data (n = {len(new)})"),
+    for ax, table, title in ((axes[0], new, f"test cohort (n = {len(new)})"),
                              (axes[1], training, f"training cohort (n = {len(training)})")):
         rows = table[order].mean(axis=1).sort_values().index
         cmap, norm = heatmap_scale(limits)

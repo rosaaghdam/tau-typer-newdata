@@ -24,7 +24,7 @@ HEAT_HELP = ("Each row is one person, each column one lobe; rows are sorted by t
              "(-3 to 10): white up to 0 (normal or below), light blue at 2 (the model's first cut-point), blue at 5, "
              "dark blue to black up to 10 (the highest cut-point). Scores beyond -3 or 10 get the end colours. Move "
              "the mouse over a cell for the exact score.")
-HIST_HELP = ("The z-scores of each lobe: test data (filled) with the method you chose, and the training cohort "
+HIST_HELP = ("The z-scores of each lobe: test cohort (filled) with the method you chose, and the training cohort "
              "(orange outline) on the scale the model was trained on (method 1, its own GMM normal). Both as % "
              "of their people, as the groups differ in size. Dashed red lines = the model's cut-points (z 2, 5, 10).")
 

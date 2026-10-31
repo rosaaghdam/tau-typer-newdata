@@ -26,7 +26,7 @@ HELP = {
                 "another spelling; 'missing' or 'more than one' = choose the column yourself in the sidebar. "
                 "A matching name does not prove the values were measured the same way (atlas, tracer, "
                 "reference region).",
-    "lobes": "Each lobe is the plain mean of its regions. Filled = your people, outline "
+    "lobes": "Each lobe is the plain mean of its regions. Filled = the test cohort, outline "
              "= the model's training cohort, both as % of the group. If your distributions sit far from the "
              "training ones, method 1 (training normal) will be off - consider method 2 or 3 in step 2.",
     "upload": "Column names should match the input template (download it below). Region columns must "
@@ -41,19 +41,19 @@ HELP = {
                    "(high), from the training cohort's 1st to 99th percentile, so similar data look alike. Move the mouse over your heatmap for the exact SUVR; the "
                    "training cohort's individual values are not shown.",
     "region_compare": "Each region: dot = the mean SUVR of all people, line = mean minus to mean plus one standard "
-                      "deviation (SD), where about two thirds of the people lie. Teal = test data, orange = the training "
+                      "deviation (SD), where about two thirds of the people lie. Teal = test cohort, orange = the training "
                       "cohort. The table adds the difference, Cohen's d (difference / pooled SD: |d| < 0.2 negligible, "
                       "0.2-0.5 small, 0.5-0.8 medium, >= 0.8 large) and the p-value of a Welch t-test, also corrected "
                       "for testing 64 regions (FDR). p says whether a difference is real, d how big it is - with many "
                       "people even a tiny difference can be 'significant'. Medium or large differences mean the test "
                       "SUVRs may be on another scale (tracer, reference region, processing) - consider normalization "
                       "method 2 or 3.",
-    "region_box": "Each region as two box plots, teal = test data, orange = the training cohort. Line in the box = "
+    "region_box": "Each region as two box plots, teal = test cohort, orange = the training cohort. Line in the box = "
                   "the median (half of the people below, half above); box = the middle 50% of the people (25th to "
                   "75th percentile); whiskers = the rest, up to 1.5 times the box length. Unlike mean +- SD, this "
                   "shows the skewed shape of tau values (most people low, a tail of tau-positive people high). "
                   "Single extreme people are not drawn.",
-    "region_hist": "The distribution of each chosen region: filled = test data, outline = the training cohort, as % "
+    "region_hist": "The distribution of each chosen region: filled = test cohort, outline = the training cohort, as % "
                    "of each group, so groups of different size compare. Six region pairs per row: the right "
                    "hemisphere above, its left partner right below (empty if not chosen). Two bumps are normal for "
                    "tau: tau-negative people (left bump) and tau-positive people (right bump).",
@@ -87,9 +87,9 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
         ui.nav_panel("Regions vs training", ui.output_ui("up_match_note"),
                      figure_card("The model's regions in your file", HELP["matching"],
                                  ui.output_data_frame("up_match_table"), table_tools("up_match")),
-                     figure_card("Regional heatmaps: test data and the training cohort", HELP["region_heat"],
+                     figure_card("Regional heatmaps: test cohort and the training cohort", HELP["region_heat"],
                                  ui.output_ui("up_region_heat"), figure_tools("up_region_heat")),
-                     figure_card("Distribution of chosen regions: test data vs the training cohort", HELP["region_hist"],
+                     figure_card("Distribution of chosen regions: test cohort vs the training cohort", HELP["region_hist"],
                                  ui.input_selectize("up_region_pick", "Regions (choose 1 to all)", choices=MODEL_REGIONS,
                                                     selected=CONFIG["model"]["cleanup"]["regions"], multiple=True,
                                                     width="100%"),
@@ -97,10 +97,10 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                                         ui.input_action_button("up_region_none", "Clear", class_="btn-sm"),
                                         class_="d-flex gap-2 mb-2"),
                                  ui.output_image("up_region_hist", height="auto"), figure_tools("up_region_hist")),
-                     figure_card("Each region: test data vs the training cohort", HELP["region_compare"],
+                     figure_card("Each region: test cohort vs the training cohort", HELP["region_compare"],
                                  ui.output_image("up_region_compare", height="auto"), figure_tools("up_region_compare"),
                                  ui.output_data_frame("up_region_table"), table_tools("up_region_csv")),
-                     figure_card("Each region as box plots: test data vs the training cohort", HELP["region_box"],
+                     figure_card("Each region as box plots: test cohort vs the training cohort", HELP["region_box"],
                                  ui.output_image("up_region_box", height="auto"), figure_tools("up_region_box"))),
         ui.nav_panel("QC", ui.output_ui("up_qc_note"), ui.output_data_frame("up_qc"),
                      ui.h6("Inclusion rule", class_="mt-3"), ui.output_ui("up_rule_note"),
@@ -108,7 +108,7 @@ panel = ui.nav_panel(step_title(1, "Upload & QC", "up_status"), ui.layout_sideba
                      figure_card("Missing values", HELP["missing"], ui.output_image("up_missing", height="auto"),
                                  figure_tools("up_missing"))),
         ui.nav_panel("Lobes",
-                     figure_card("Your lobes vs the model's training data", HELP["lobes"],
+                     figure_card("Lobes: test cohort vs training cohort", HELP["lobes"],
                                  ui.output_image("up_lobes_plot", height="auto"), figure_tools("up_lobes")),
                      ui.h6("Lobe values (everyone kept; scroll the table)", class_="mt-3"), ui.output_data_frame("up_lobes_head"),
                      table_tools("up_lobes_table")),
@@ -371,14 +371,14 @@ def server(input, output, session, shared):
         yours = values[order].loc[values[order].mean(axis=1).sort_values().index]
         theirs = training[order].loc[training[order].mean(axis=1).sort_values().index]
         return ui.TagList(
-            ui.h6(f"Test data (n = {len(yours)})"),
+            ui.h6(f"Test cohort (n = {len(yours)})"),
             ui.HTML(matrix_heatmap_html(yours, limits, "regional SUVR", "people, sorted by mean (lowest at the top)",
                                         "tt_region_new", height=420, label_size=9)),
             ui.h6(f"Training cohort (n = {len(theirs)})", class_="mt-4"),
             ui.HTML(matrix_heatmap_html(theirs, limits, "regional SUVR", "people, sorted by mean (lowest at the top)",
                                         "tt_region_training", hover=False, height=420, label_size=9)))
 
-    add_figure(report_items, "up_region_heat", "Regional heatmaps: test data and the training cohort",
+    add_figure(report_items, "up_region_heat", "Regional heatmaps: test cohort and the training cohort",
                lambda: plot_region_heatmaps(regional(), training_regional(), region_limits(training_regional())))
 
     def make_region_hist():
@@ -403,7 +403,7 @@ def server(input, output, session, shared):
             return None
         return as_picture(make_region_hist())
 
-    add_figure(report_items, "up_region_hist", "Distribution of chosen regions: test data vs the training cohort",
+    add_figure(report_items, "up_region_hist", "Distribution of chosen regions: test cohort vs the training cohort",
                make_region_hist)
 
     def region_table():
@@ -418,7 +418,7 @@ def server(input, output, session, shared):
     def up_region_compare():
         return None if regional() is None else as_picture(make_region_compare())
 
-    add_figure(report_items, "up_region_compare", "Each region: test data vs the training cohort", make_region_compare,
+    add_figure(report_items, "up_region_compare", "Each region: test cohort vs the training cohort", make_region_compare,
                in_report=True)
 
     def make_region_box():
@@ -430,14 +430,14 @@ def server(input, output, session, shared):
     def up_region_box():
         return None if regional() is None else as_picture(make_region_box())
 
-    add_figure(report_items, "up_region_box", "Each region as box plots: test data vs the training cohort",
+    add_figure(report_items, "up_region_box", "Each region as box plots: test cohort vs the training cohort",
                make_region_box)
 
     @render.data_frame
     def up_region_table():
         return None if regional() is None else render.DataGrid(region_table().reset_index(), height="420px")
 
-    add_table(report_items, "up_region_csv", "Each region: test data vs the training cohort", region_table)
+    add_table(report_items, "up_region_csv", "Each region: test cohort vs the training cohort", region_table)
 
     @reactive.calc
     def lobes():
@@ -559,7 +559,7 @@ def server(input, output, session, shared):
     def up_lobes_plot():
         return None if lobes() is None else as_picture(make_lobes_plot())
 
-    add_figure(report_items, "up_lobes", "Lobes: test data vs the training data", make_lobes_plot, in_report=True)
+    add_figure(report_items, "up_lobes", "Lobes: test cohort vs the training cohort", make_lobes_plot, in_report=True)
 
     @render.data_frame
     def up_lobes_head():

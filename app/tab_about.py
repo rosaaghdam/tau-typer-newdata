@@ -47,5 +47,5 @@ def server(input, output, session, shared):
             ui.tags.ul(ui.tags.li(f"version: {info['version']}"),
                        ui.tags.li(f"git commit: {info['commit'] or 'unknown'}")),
             ui.h5("Please cite"), ui.tags.ul(*[ui.tags.li(paper) for paper in papers]),
-            ui.h5("Test data"),
+            ui.h5("Test cohort"),
             ui.p("Uploaded data stay on the computer that runs this app; nothing is saved or sent anywhere."))
