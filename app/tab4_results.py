@@ -22,9 +22,9 @@ HELP = {
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
     "probs_train": "The same for the training cohort (the trained model applied to its own people, normalization "
                    "method 1, the settings of your run). No labels under the mouse: the training people stay private.",
-    "trajectory_model": "The same subtype as the trained model learned it (as in step 3): each lobe coloured by the "
-                        "highest cut-point it has reached at each stage in the model (grey = not yet; light blue z 2, "
-                        "blue z 5, dark blue z 10). Compare with the test cohort's real z-scores on the left.",
+    "trajectory_model": "The same subtype as the trained model learned it (as in step 3), at the last stage of each "
+                        "group on the left (6, 12, ...): each lobe coloured by the highest cut-point it has reached in "
+                        "the model. Same colours and rows as the test cohort, so each row can be compared directly.",
     "stages_train": "The same for the training cohort (the trained model applied to its own people, normalization "
                     "method 1, the settings of your run): % of its tau+ people at each stage, by subtype, and each "
                     "subtype's stage uncertainty as box plots. Only group numbers - no single training person is "
@@ -36,11 +36,11 @@ HELP = {
     "boxes": "Each lobe's z-scores per group - S0 grey, subtypes in their colours. Red dashed line = z 2, the "
              "model's first cut-point: above it a lobe counts as abnormal. Every lobe has the same y range - from the "
              "lowest to the highest z-score of all lobes (the test cohort's and the training cohort's) - so the lobes and the two figures can be compared.",
-    "trajectory": "One subtype in the test cohort on 3D brains (left and right, outside and inside views): top row, the "
-                  "average z-score of all its tau+ people; below, the people in each stage group (1-6, 7-12, ...), so "
-                  "you can follow tau spreading. Each lobe is coloured on its cortex regions: grey = below z 2 (normal), "
-                  "light to dark blue = z 2 to 10; white = regions in no lobe of the model. Hippocampus and amygdala lie "
-                  "inside the brain and are not drawn. Drawn with yabplot the first time (~10 s), then kept.",
+    "trajectory": "One subtype in the test cohort on 3D brains (left and right, outside and inside views), one row "
+                  "per stage group (1-6, 7-12, ...; n = its tau+ people): each lobe's average z-score, in the same "
+                  "classes as the trained model on the right - grey = below z 2, light blue = at least z 2, blue = at "
+                  "least z 5, dark blue = at least z 10; white = regions in no lobe of the model. Hippocampus and "
+                  "amygdala lie inside the brain and are not drawn. Drawn with yabplot the first time (~10 s), then kept.",
     "stages": "Top: % of the tau+ people at each stage, coloured by subtype. Bottom: how sure the model is about "
               "each person's stage (SD of their stage probabilities); dashed red = your limit. Move the mouse over a "
               "bar piece for its number of people. The table below lists the people above your limit.",
@@ -52,8 +52,8 @@ HELP = {
              "the true subtype.",
     "person": "One person: their z-score per lobe (bars) next to the average of the test cohort people in the same subtype and "
               "stage group (dots); their probability of each of the 5 groups - S0 (stage 0) and Subtypes 1-4 (a "
-              "stage above 0), together 1 - and of each stage. The false-positive check (step 3) can still move a "
-              "person with a subtype to S0.",
+              "stage above 0), together 1 - and of each stage. A person the false-positive check (step 3) reset to S0 "
+              "is shown corrected (S0, stage 0); the title says what the model gave.",
     "studies": "% of each study's people in S0 and each subtype. A subtype found in one study "
                "only may be a scanner or processing effect.",
 }
@@ -216,6 +216,7 @@ def server(input, output, session, shared):
             progress.set(0.5, message=f"Drawing {name} on the brain ...", detail="first time only")
             return subtype_brains_png(r["z"], r["table"], PACKAGE["lobes"], PACKAGE["regions"],
                                       SUBTYPE_NAMES.index(name) + 1, name, CONFIG["results"]["stage_edges"],
+                                      sorted(set(PACKAGE["Z_vals"][PACKAGE["Z_vals"] > 0])),
                                       ROOT / CONFIG["app"]["brain_cache"])
 
     def make_brain():
@@ -553,15 +554,18 @@ def server(input, output, session, shared):
         expected = z[same].mean() if table.loc[person, "ml_stage"] > 0 else None
         i = table.index.get_loc(person)
         groups = table.loc[person, ["group_p_S0"] + [f"group_p_S{n}" for n in range(1, len(SUBTYPE_NAMES) + 1)]]
+        groups, stages = groups.to_numpy(float), res["prob_stage"][i]
         row = table.loc[person]
-        if bool(row.get("cleaned", False)):              # the model gave a subtype, the false-positive check reset it
-            title = (f"{person}: the model gives {SUBTYPE_NAMES[int(row['subtype_before_cleanup']) - 1]}, stage "
-                     f"{int(row['stage_before_cleanup'])} (the probabilities below) -> reset to S0 by the "
-                     "false-positive check (no ROI high-signal probability above the threshold)")
+        if bool(row.get("cleaned", False)):              # the false-positive check reset the model's subtype to S0:
+            groups = np.eye(len(groups))[0]              # show the corrected result (S0, stage 0) ...
+            stages = np.eye(len(stages))[0]
+            title = (f"{person}: S0 after the false-positive check (no ROI high-signal probability above the "   # ... and
+                     f"threshold); the model gave {SUBTYPE_NAMES[int(row['subtype_before_cleanup']) - 1]}, stage "  # what
+                     f"{int(row['stage_before_cleanup'])}")                                       # the model gave
         else:
             title = f"{person}: {row['subtype']}" + (f", stage {int(row['ml_stage'])}" if row["ml_stage"] > 0 else "")
-        return plot_person(person, z.loc[person], PACKAGE["lobes"], expected, groups.to_numpy(float),
-                           res["prob_stage"][i], ["S0"] + SUBTYPE_NAMES, title=title)
+        return plot_person(person, z.loc[person], PACKAGE["lobes"], expected, groups, stages, ["S0"] + SUBTYPE_NAMES,
+                           title=title)
 
     @render.image
     def rs_person_plot():

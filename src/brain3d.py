@@ -11,14 +11,14 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
 VIEWS = ["left_lateral", "left_medial", "right_medial", "right_lateral"]
 NOT_REACHED = "#A9B1BB"                                   # a lobe that has not reached z 2 yet
 OUTSIDE = "#FFFFFF"                                       # regions in no lobe of the model (and the medial wall)
 LEVEL_COLOURS = ["#9ECAE1", "#4292C6", "#08306B"]         # z 2, z 5, z 10: the app's blue scale, no black
-VERSION = 6                                               # raise when the drawing changes: old cached files are not used
+VERSION = 7                                               # raise when the drawing changes: old cached files are not used
 
 
 def atlas_name(region):
@@ -77,9 +77,13 @@ def draw_trajectory(events, regions, title, stages, views=VIEWS):
     n_levels = events.shape[1]
     cmap = ListedColormap([NOT_REACHED] + LEVEL_COLOURS[:n_levels])
     rows = [(f"stage {stage}", region_levels(events, regions, stage)) for stage in stages]
-    labels = ["not reached yet"] + [f"reached z {z:g}" for z in events.columns] + ["not in a lobe of the model"]
-    shades = [NOT_REACHED] + LEVEL_COLOURS[:n_levels] + [OUTSIDE]
-    return draw_brain_rows(rows, cmap, (0.5, n_levels + 1.5), title, views, legend=(shades, labels))
+    return draw_brain_rows(rows, cmap, (0.5, n_levels + 1.5), title, views, legend=level_legend(events.columns))
+
+
+def level_legend(levels):
+    """(colours, labels) of the classes, the same in every trajectory figure."""
+    labels = ["not reached yet"] + [f"reached z {z:g}" for z in levels] + ["not in a lobe of the model"]
+    return [NOT_REACHED] + LEVEL_COLOURS[:len(levels)] + [OUTSIDE], labels
 
 
 def cache_key(package, stages, views=VIEWS):
@@ -95,7 +99,7 @@ def trajectory_png(package, events_by_subtype, subtype, stages, folder):
     path = Path(folder) / cache_key(package, stages) / f"subtype{package['subtype_names'].index(subtype) + 1}.png"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        fig = draw_trajectory(events_by_subtype[subtype], package["regions"], f"{subtype}: trajectory on the brain",
+        fig = draw_trajectory(events_by_subtype[subtype], package["regions"], f"{subtype}: the trained model",
                               stages)
         fig.savefig(path, dpi=150)
         plt.close(fig)
@@ -112,48 +116,44 @@ def picture_figure(path, dpi=150):
     return fig
 
 
-# ---------- Step 4: your people's average z-scores per subtype and stage group ----------
-LOW_Z = 2                                                  # below the first cut-point = normal: drawn grey
-Z_CMAP = LinearSegmentedColormap.from_list("z_on_brain", [(0, NOT_REACHED), (0.999 / 9, NOT_REACHED),
-                                                          (1 / 9, "#C6DBEF"), (4 / 9, "#2171B5"), (1, "#08306B")])
-Z_RANGE = (1, 10)                                          # 1 = grey (below 2); 2 -> light blue ... 10 -> dark blue
-
-
-def lobe_z_values(means, regions):
-    """{aparc region: value to draw} from one row of lobe means: below 2 -> 1 (grey), else the mean up to 10."""
+# ---------- Step 4: the test cohort, in the same classes as the model's trajectory ----------
+def lobe_level_values(means, regions, levels):
+    """{aparc region: class} from one row of lobe means, the same classes as the model's trajectory: 1 = below the
+    first cut-point, 2 = at least the first (z 2), 3 = the second (z 5), ... Lobes without a mean are left out."""
     values = {}
     for lobe, mean in means.items():
         if np.isnan(mean):
             continue
-        value = 1.0 if mean < LOW_Z else min(float(mean), Z_RANGE[1])
+        level = int(sum(mean >= cut for cut in levels)) + 1
         for region in regions[lobe]:
-            values[atlas_name(region)] = value
+            values[atlas_name(region)] = level
     return values
 
 
-def subtype_z_rows(z, table, lobes, regions, subtype_number, stage_edges):
-    """The rows of one subtype: all its tau+ people, then each stage group (e.g. 1-6, 7-12, ...); empty groups are
-    left out. Each row: the people's average z-score per lobe on their regions."""
+def subtype_z_rows(z, table, lobes, regions, subtype_number, stage_edges, levels):
+    """One row per stage group (e.g. 1-6, 7-12, ...) - the same rows as the model's trajectory at the end of each
+    group: the average z-score of the group's tau+ people per lobe, in the classes of lobe_level_values. An empty
+    group stays as a row (drawn white) so the rows line up with the model's."""
     people = (table["subtype_number"] == subtype_number) & (table["ml_stage"] > 0)
-    rows = [(f"all stages\nn = {int(people.sum())}", lobe_z_values(z.loc[people, lobes].mean(), regions))]
+    rows = []
     for low, high in zip(stage_edges[:-1], stage_edges[1:]):
         group = people & table["ml_stage"].between(low, high - 1)
-        if group.any():
-            rows.append((f"stages {low}-{high - 1}\nn = {int(group.sum())}",
-                         lobe_z_values(z.loc[group, lobes].mean(), regions)))
+        values = lobe_level_values(z.loc[group, lobes].mean(), regions, levels) if group.any() else {}
+        rows.append((f"stages {low}-{high - 1}\nn = {int(group.sum())}", values))
     return rows
 
 
-def subtype_brains_png(z, table, lobes, regions, subtype_number, name, stage_edges, folder):
-    """The PNG of one subtype in your data: drawn the first time, read from the cache folder afterwards (the key
-    changes with the people, their z-scores, subtypes and stages)."""
-    rows = subtype_z_rows(z, table, lobes, regions, subtype_number, stage_edges)
+def subtype_brains_png(z, table, lobes, regions, subtype_number, name, stage_edges, levels, folder):
+    """The PNG of one subtype in the test cohort: drawn the first time, read from the cache folder afterwards (the
+    key changes with the people, their z-scores, subtypes and stages)."""
+    rows = subtype_z_rows(z, table, lobes, regions, subtype_number, stage_edges, levels)
     h = hashlib.sha1(json.dumps([[label, sorted(values.items())] for label, values in rows] + [name, VERSION]).encode())
-    path = Path(folder) / "your_data" / f"{h.hexdigest()[:16]}.png"
+    path = Path(folder) / "test_cohort" / f"{h.hexdigest()[:16]}.png"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        fig = draw_brain_rows(rows, Z_CMAP, Z_RANGE, f"{name}: trajectory in the test cohort",
-                              colour_label=f"average z-score of the people (grey = below {LOW_Z}, normal)")
+        cmap = ListedColormap([NOT_REACHED] + LEVEL_COLOURS[:len(levels)])
+        fig = draw_brain_rows(rows, cmap, (0.5, len(levels) + 1.5), f"{name}: the test cohort",
+                              legend=level_legend(levels))
         fig.savefig(path, dpi=150)
         plt.close(fig)
     return path

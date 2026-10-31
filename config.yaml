@@ -168,5 +168,6 @@ app:
   heatmap_limits: [-3, 10]                   # step 2 heatmap colour scale (white -> black), the same for every method
   boxplot_limits: auto                       # step 4 box plots: the same y range for every lobe; auto = the data's
                                              # lowest to highest z-score, or fixed, e.g. [-5, 20]
-  trajectory_stages: [5, 10, 15, 20, 25, 30] # step 3 "Trajectory on the brain": one row of 3D brains per stage
+  trajectory_stages: [6, 12, 18, 24, 30]     # model trajectory rows: the last stage of each results.stage_edges group,
+                                             # so they line up with the test cohort's rows (stages 1-6, 7-12, ...)
   brain_cache: results/brain_cache           # those figures are drawn once (~10 s each) and kept here
