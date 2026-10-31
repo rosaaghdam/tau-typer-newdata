@@ -22,9 +22,10 @@ HELP = {
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
     "probs_train": "The same for the training cohort (the trained model applied to its own people, normalization "
                    "method 1, the settings of your run). No labels under the mouse: the training people stay private.",
-    "trajectory_model": "The same subtype as the trained model learned it (as in step 3), at the last stage of each "
-                        "group on the left (6, 12, ...): each lobe coloured by the highest cut-point it has reached in "
-                        "the model. Same colours and rows as the test cohort, so each row can be compared directly.",
+    "trajectory_model": "The same subtype as the trained model learned it, one row per stage group as on the left: "
+                        "each lobe coloured by the highest cut-point it has reached in the model at the group's last "
+                        "stage (6, 12, ...). n = the training cohort's people in this subtype and stage group. Same "
+                        "colours and rows as the test cohort, so each row can be compared directly.",
     "stages_train": "The same for the training cohort (the trained model applied to its own people, normalization "
                     "method 1, the settings of your run): % of its tau+ people at each stage, by subtype, and each "
                     "subtype's stage uncertainty as box plots. Only group numbers - no single training person is "
@@ -223,16 +224,24 @@ def server(input, output, session, shared):
         return picture_figure(brain_png())
 
     def brain_model_png():
+        """The model at the last stage of each group, labelled like the test cohort: the group and its number of
+        training cohort people in this subtype (group numbers only)."""
         name = optional_input(input, "rs_brain_subtype") or SUBTYPE_NAMES[0]
-        return trajectory_png(PACKAGE, MODEL_EVENTS, name, CONFIG["app"]["trajectory_stages"],
-                              ROOT / CONFIG["app"]["brain_cache"])
+        edges, train = CONFIG["results"]["stage_edges"], training()
+        people = (train["subtype_number"] == SUBTYPE_NAMES.index(name) + 1) & (train["ml_stage"] > 0)
+        labels = [f"stages {low}-{high - 1}\nn = {int((people & train['ml_stage'].between(low, high - 1)).sum())}"
+                  for low, high in zip(edges[:-1], edges[1:])]
+        stages = [high - 1 for high in edges[1:]]
+        with ui.Progress(min=0, max=1) as progress:     # only the first time: kept afterwards
+            progress.set(0.5, message=f"Drawing {name} (trained model) ...", detail="first time only")
+            return trajectory_png(PACKAGE, MODEL_EVENTS, name, stages, ROOT / CONFIG["app"]["brain_cache"], labels)
 
     def make_brain_model():
         return picture_figure(brain_model_png())
 
     @render.image
     def rs_brain_model():
-        return as_picture(make_brain_model())
+        return as_picture(make_brain_model()) if shown() else None
 
     add_figure(report_items, "rs_brain_model", "Trajectory: the trained model", make_brain_model)
 
@@ -505,6 +514,13 @@ def server(input, output, session, shared):
     add_figure(report_items, "rs_probs_train", "Subtype probabilities (training cohort)", make_probs_train,
                in_report=True)
 
+    def table_output(out_id, make):
+        """Shows make()'s table on the page under the id out_id (one function per table, so no default arguments)."""
+        def show():
+            return render.DataGrid(make().reset_index()) if shown() else None
+        show.__name__ = out_id
+        render.data_frame(show)
+
     def summary_train():
         out = subtype_summary(training())
         return out.loc[[g for g in ["S0"] + SUBTYPE_NAMES if g in out.index]]
@@ -521,10 +537,7 @@ def server(input, output, session, shared):
                                          study_train),
                                         ("rs_clinical_train", "rs_clinical_train_csv",
                                          "Clinical summary per group (training cohort)", clinical_train)]:
-        def show(make=make):
-            return render.DataGrid(make().reset_index()) if shown() else None
-        show.__name__ = out_id                            # = the id of its table on the page
-        render.data_frame(show)
+        table_output(out_id, make)
         add_table(report_items, csv_id, title, make, in_report=True)
 
     @reactive.effect

@@ -73,11 +73,13 @@ def draw_brain_rows(rows, cmap, vminmax, title, views=VIEWS, legend=None, colour
     return fig
 
 
-def draw_trajectory(events, regions, title, stages, views=VIEWS):
-    """The model's trajectory: one row per stage, each lobe coloured by the highest cut-point it has reached."""
+def draw_trajectory(events, regions, title, stages, views=VIEWS, labels=None):
+    """The model's trajectory: one row per stage, each lobe coloured by the highest cut-point it has reached.
+    labels: the row labels (default "stage 6", ...)."""
     n_levels = events.shape[1]
     cmap = ListedColormap([NOT_REACHED] + LEVEL_COLOURS[:n_levels])
-    rows = [(f"stage {stage}", region_levels(events, regions, stage)) for stage in stages]
+    labels = labels or [f"stage {stage}" for stage in stages]
+    rows = [(label, region_levels(events, regions, stage)) for label, stage in zip(labels, stages)]
     return draw_brain_rows(rows, cmap, (0.5, n_levels + 1.5), title, views, legend=level_legend(events.columns))
 
 
@@ -95,13 +97,17 @@ def cache_key(package, stages, views=VIEWS):
     return h.hexdigest()[:12]
 
 
-def trajectory_png(package, events_by_subtype, subtype, stages, folder):
-    """The PNG of one subtype's trajectory: drawn the first time, read from the cache folder afterwards."""
-    path = Path(folder) / cache_key(package, stages) / f"subtype{package['subtype_names'].index(subtype) + 1}.png"
+def trajectory_png(package, events_by_subtype, subtype, stages, folder, labels=None):
+    """The PNG of one subtype's trajectory: drawn the first time, read from the cache folder afterwards (a file per
+    set of row labels)."""
+    name = f"subtype{package['subtype_names'].index(subtype) + 1}"
+    if labels:
+        name += "_" + hashlib.sha1("|".join(labels).encode()).hexdigest()[:10]
+    path = Path(folder) / cache_key(package, stages) / f"{name}.png"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         fig = draw_trajectory(events_by_subtype[subtype], package["regions"], f"{subtype}: the trained model",
-                              stages)
+                              stages, labels=labels)
         fig.savefig(path, dpi=150)
         plt.close(fig)
     return path
