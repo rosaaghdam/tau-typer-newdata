@@ -38,7 +38,7 @@ def test_whole_app_with_the_example_data():
         ts.set_inputs(ap_run=1)                                  # step 3: apply the model
         ts.set_inputs(rs_sd_limit=1.5)                           # some outputs follow on the next update
         assert errors(ts) == {}
-        ok(ts, "ap_counts", "ap_pvd", "ap_events", "ap_brain", "ap_cleanup_plot", "ap_cleanup_scan_plot", "rs_person_plot", "rs_summary", "rs_patterns", "rs_boxes",
+        ok(ts, "ap_counts", "ap_pvd", "ap_events", "ap_cleanup_plot", "ap_cleanup_scan_plot", "rs_person_plot", "rs_summary", "rs_patterns", "rs_boxes",
            "rs_brain", "rs_brain_model", "rs_stages", "rs_uncertain", "rs_stage_hist", "rs_probs", "rs_unclear", "rs_studies", "rs_study_table", "rs_clinical", "rs_summary_train", "rs_patterns_train", "rs_boxes_train", "rs_stages_train", "rs_stage_hist_train", "rs_probs_train", "rs_study_train", "rs_clinical_train",
            "rp_note")
 

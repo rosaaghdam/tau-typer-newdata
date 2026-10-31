@@ -14,11 +14,12 @@ import numpy as np
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
+plt.style.use(Path(__file__).with_name("tau_typer.mplstyle"))   # the app's look, also when a script draws these
 VIEWS = ["left_lateral", "left_medial", "right_medial", "right_lateral"]
 NOT_REACHED = "#A9B1BB"                                   # a lobe that has not reached z 2 yet
 OUTSIDE = "#FFFFFF"                                       # regions in no lobe of the model (and the medial wall)
 LEVEL_COLOURS = ["#9ECAE1", "#4292C6", "#08306B"]         # z 2, z 5, z 10: the app's blue scale, no black
-VERSION = 7                                               # raise when the drawing changes: old cached files are not used
+VERSION = 8                                               # raise when the drawing changes: old cached files are not used
 
 
 def atlas_name(region):
