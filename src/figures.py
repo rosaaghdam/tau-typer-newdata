@@ -411,19 +411,23 @@ def plot_subtype_probabilities(prob_subtype, table, subtype_titles, seed=0, colo
     return fig
 
 
-def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None, colors=None, bars_only=False):
+def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None, colors=None, private=False):
     """Top: % of the tau+ people at each SuStaIn stage 1, 2, ..., per subtype (paper Ext. Fig. 2). The S0
     people (stage 0, no abnormal tau - no subtype) are not drawn; their number is written under the axis.
     Middle: how sure SuStaIn is about each person's stage (table column stage_sd) against the most likely
     stage (high where events overlap - the pale squares of the PVD).
     Right: the same uncertainty per subtype. Dashed red line = sd_limit (above = uncertain stage).
     person: this person's dot gets a black ring. subtype (1, 2, ...): only this subtype in colour in the
-    middle and right panels, the others grey. bars_only: only the top panel (group numbers, no single people)."""
+    middle and right panels, the others grey. private: no single people (e.g. the training cohort) - the top panel
+    and the uncertainty per subtype as box plots without outlier dots."""
     k = len(subtype_titles)
     colors = subtype_colors(k, colors)
     stages = np.arange(table["ml_stage"].max() + 1)
-    if bars_only:                                        # only the group numbers (e.g. the training cohort)
-        fig, ax1 = plt.subplots(figsize=(13, 4.5))
+    if private:                                          # group numbers only (e.g. the training cohort)
+        fig = plt.figure(figsize=(13, 9))
+        grid = fig.add_gridspec(2, 1)
+        ax1 = fig.add_subplot(grid[0])
+        ax3 = fig.add_subplot(grid[1].subgridspec(1, 3, width_ratios=[1, 1.4, 1])[1])
     else:
         fig = plt.figure(figsize=(13, 9))                # top: S0 + stages; bottom: uncertainty + per subtype
         grid = fig.add_gridspec(2, 1)
@@ -448,9 +452,19 @@ def plot_stages(table, subtype_titles, sd_limit=None, person=None, subtype=None,
     ax1.set_ylabel("% of tau+ people")
     ax1.legend()
     fig.tt_boxes = (ax1, boxes)
-    if bars_only:
+    if private:
         ax1.set_xticks(stages[1:], stages[1:], fontsize=7)
         ax1.set_xlim(0.4, stages[-1] + 0.6)
+        tau = table[table["ml_stage"] > 0]
+        ax3.boxplot([tau.loc[tau["ml_subtype"] == n, "stage_sd"] for n in range(1, k + 1)], widths=0.6,
+                    patch_artist=True, medianprops={"color": "white"}, showfliers=False)
+        for patch, color in zip(ax3.patches, colors):
+            patch.set_facecolor(color)
+        ax3.set_xticks(range(1, k + 1), [t.replace(" ", "\n") for t in subtype_titles])
+        ax3.set_ylabel("stage uncertainty: SD, in stages")
+        if sd_limit is not None:
+            ax3.axhline(sd_limit, ls="--", color="#C62828", lw=1.2, label=f"limit {sd_limit:g}")
+            ax3.legend(fontsize=8, frameon=False)
         fig.tight_layout()
         return fig
 
@@ -635,7 +649,8 @@ def plot_subtype_tree(subtypes_by_k, colors=None):
     return fig
 
 
-def plot_person(person, z_person, regions, expected, prob_subtype, prob_stage, subtype_titles, colors=None):
+def plot_person(person, z_person, regions, expected, prob_subtype, prob_stage, subtype_titles, colors=None,
+                title=None):
     """One person's "fingerprint": their z-scores per region (bars) next to the average of the people
     in the same subtype and stage group (dots), plus their subtype and stage probabilities. subtype_titles may
     start with "S0": then prob_subtype is the probability of each group S0, Subtype 1, ... (S0 drawn grey)."""
@@ -658,6 +673,8 @@ def plot_person(person, z_person, regions, expected, prob_subtype, prob_stage, s
     ax3.bar(range(len(prob_stage)), prob_stage / prob_stage.sum(), color="gray")
     ax3.set_xlabel("SuStaIn stage")
     ax3.set_ylabel("stage probability")
+    if title:                                            # e.g. the model's result and what the check changed
+        fig.suptitle(title, x=0.01, ha="left", fontsize=11, fontweight="bold")
     fig.tight_layout()
     return fig
 

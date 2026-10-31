@@ -6,23 +6,29 @@ from shiny.types import SafeException
 
 from common import (CONFIG, PACKAGE, ROOT, SUBTYPE_NAMES, optional_input, add_figure, add_table, as_picture, figure_card, figure_tools,
                     step_status, step_title, table_tools)
-from src.brain3d import picture_figure, subtype_brains_png
+from src.brain3d import picture_figure, subtype_brains_png, trajectory_png
 from src.figures import plot_cohort_subtypes, plot_person, plot_stages, plot_subtype_patterns, plot_subtype_probabilities
 from src.figures_apply import boxplot_limits, plot_lobe_boxplots, plot_stage_histograms, score_cmap
 from src.hover_figure import hover_figure_html
 from src.compare import run_file
 from src.results import subtype_summary
+from src.trained_model import event_stages
 from src.training_cohort import clinical_table, study_counts, training_table
 
+MODEL_EVENTS = event_stages(PACKAGE)                  # the trained model's mean stage of every event
 REF_COLUMNS = CONFIG["model"]["reference_columns"]     # study, age, sex, diagnosis in the training file
 HELP = {
     "patterns": "Average z-score of each lobe (rows) in each subtype (columns), tau+ people only "
                 "(Vogel et al. 2021 Fig. 1a as a heat map). n = tau+ people.",
     "probs_train": "The same for the training cohort (the trained model applied to its own people, normalization "
                    "method 1, the settings of your run). No labels under the mouse: the training people stay private.",
+    "trajectory_model": "The same subtype as the trained model learned it (as in step 3): each lobe coloured by the "
+                        "highest cut-point it has reached at each stage in the model (grey = not yet; light blue z 2, "
+                        "blue z 5, dark blue z 10). Compare with the test cohort's real z-scores on the left.",
     "stages_train": "The same for the training cohort (the trained model applied to its own people, normalization "
-                    "method 1, the settings of your run): % of its tau+ people at each stage, by subtype. Only group "
-                    "numbers - no single training person is shown. Move the mouse over a bar piece for its number.",
+                    "method 1, the settings of your run): % of its tau+ people at each stage, by subtype, and each "
+                    "subtype's stage uncertainty as box plots. Only group numbers - no single training person is "
+                    "shown, so no dots. Move the mouse over a bar piece for its number.",
     "boxes_train": "The same box plots for the training cohort (the trained model applied to its own people, "
                    "normalization method 1, the settings of your run). The y range is shared with the test cohort's figure.",
     "patterns_train": "The same for the training cohort: the trained model applied to its own people (normalization "
@@ -78,36 +84,47 @@ panel = ui.nav_panel(step_title(4, "Results", "rs_status"), ui.div(
                              ui.output_image("rs_boxes", height="auto"), figure_tools("rs_boxes")),
                  figure_card("z-scores per group: training cohort", HELP["boxes_train"],
                              ui.output_image("rs_boxes_train", height="auto"), figure_tools("rs_boxes_train"))),
-    ui.nav_panel("Trajectory", figure_card("Trajectory", HELP["trajectory"],
-                                           ui.input_select("rs_brain_subtype", "Subtype", choices=SUBTYPE_NAMES,
-                                                           width="14rem"),
-                                           ui.output_image("rs_brain", height="auto"), figure_tools("rs_brain"))),
+    ui.nav_panel("Trajectory",
+                 ui.input_select("rs_brain_subtype", "Subtype", choices=SUBTYPE_NAMES, width="14rem"),
+                 ui.layout_columns(
+                     figure_card("Trajectory: test cohort", HELP["trajectory"],
+                                 ui.output_image("rs_brain", height="auto"), figure_tools("rs_brain")),
+                     figure_card("Trajectory: the trained model", HELP["trajectory_model"],
+                                 ui.output_image("rs_brain_model", height="auto"), figure_tools("rs_brain_model")),
+                     col_widths=[6, 6])),
     ui.nav_panel("Stages",
-                 figure_card("Stages and their certainty", HELP["stages"],
-                             ui.input_numeric("rs_sd_limit", "Stage uncertainty limit (SD, in stages)", value=1.0,
-                                              min=0, step=0.1, width="18rem"),
-                             ui.output_ui("rs_stages"), figure_tools("rs_stages"),
-                             ui.output_ui("rs_uncertain_note"), ui.output_data_frame("rs_uncertain"),
-                             table_tools("rs_uncertain_csv")),
-                 figure_card("Stages per subtype", HELP["stage_hist"], ui.output_image("rs_stage_hist", height="auto"),
-                             figure_tools("rs_stage_hist")),
-                 figure_card("Stages: training cohort", HELP["stages_train"], ui.output_ui("rs_stages_train"),
-                             figure_tools("rs_stages_train")),
-                 figure_card("Stages per subtype: training cohort", HELP["stages_train"],
-                             ui.output_image("rs_stage_hist_train", height="auto"), figure_tools("rs_stage_hist_train"))),
-    ui.nav_panel("Probabilities", figure_card("Subtype probabilities", HELP["probs"],
-                                              ui.output_ui("rs_probs"), figure_tools("rs_probs"),
-                                              ui.input_numeric("rs_unclear_limit", "List people with a subtype "
-                                                               "probability below", value=0.9, min=0, max=1, step=0.05,
-                                                               width="18rem"),
-                                              ui.output_ui("rs_unclear_note"), ui.output_data_frame("rs_unclear"),
-                                              table_tools("rs_unclear_csv")),
-                 figure_card("Subtype probabilities: training cohort", HELP["probs_train"],
-                             ui.output_image("rs_probs_train", height="auto"), figure_tools("rs_probs_train"))),
+                 ui.input_numeric("rs_sd_limit", "Stage uncertainty limit (SD, in stages)", value=1.0,
+                                  min=0, step=0.1, width="18rem"),
+                 ui.layout_columns(
+                     figure_card("Stages and their certainty: test cohort", HELP["stages"],
+                                 ui.output_ui("rs_stages"), figure_tools("rs_stages")),
+                     figure_card("Stages and their certainty: training cohort", HELP["stages_train"],
+                                 ui.output_ui("rs_stages_train"), figure_tools("rs_stages_train")),
+                     col_widths=[6, 6]),
+                 ui.output_ui("rs_uncertain_note"), ui.output_data_frame("rs_uncertain"),
+                 table_tools("rs_uncertain_csv"),
+                 ui.layout_columns(
+                     figure_card("Stages per subtype: test cohort", HELP["stage_hist"],
+                                 ui.output_image("rs_stage_hist", height="auto"), figure_tools("rs_stage_hist")),
+                     figure_card("Stages per subtype: training cohort", HELP["stages_train"],
+                                 ui.output_image("rs_stage_hist_train", height="auto"),
+                                 figure_tools("rs_stage_hist_train")),
+                     col_widths=[6, 6])),
+    ui.nav_panel("Probabilities",
+                 ui.layout_columns(
+                     figure_card("Subtype probabilities: test cohort", HELP["probs"],
+                                 ui.output_ui("rs_probs"), figure_tools("rs_probs")),
+                     figure_card("Subtype probabilities: training cohort", HELP["probs_train"],
+                                 ui.output_image("rs_probs_train", height="auto"), figure_tools("rs_probs_train")),
+                     col_widths=[6, 6]),
+                 ui.input_numeric("rs_unclear_limit", "List test cohort people with a subtype probability below",
+                                  value=0.9, min=0, max=1, step=0.05, width="24rem"),
+                 ui.output_ui("rs_unclear_note"), ui.output_data_frame("rs_unclear"), table_tools("rs_unclear_csv")),
     ui.nav_panel("Per person", figure_card("One person", HELP["person"],
                                            ui.layout_columns(
                                                ui.input_select("rs_person_group", "Group",
-                                                               choices=["S0"] + SUBTYPE_NAMES, selected=SUBTYPE_NAMES[0]),
+                                                               choices=["All"] + ["S0"] + SUBTYPE_NAMES,
+                                                               selected=SUBTYPE_NAMES[0]),
                                                ui.input_selectize("rs_person", "Person", choices=[]),
                                                col_widths=[3, 4]),
                                            ui.output_image("rs_person_plot", height="auto"), figure_tools("rs_person"))),
@@ -204,6 +221,20 @@ def server(input, output, session, shared):
     def make_brain():
         return picture_figure(brain_png())
 
+    def brain_model_png():
+        name = optional_input(input, "rs_brain_subtype") or SUBTYPE_NAMES[0]
+        return trajectory_png(PACKAGE, MODEL_EVENTS, name, CONFIG["app"]["trajectory_stages"],
+                              ROOT / CONFIG["app"]["brain_cache"])
+
+    def make_brain_model():
+        return picture_figure(brain_model_png())
+
+    @render.image
+    def rs_brain_model():
+        return as_picture(make_brain_model())
+
+    add_figure(report_items, "rs_brain_model", "Trajectory: the trained model", make_brain_model)
+
     @render.image
     def rs_brain():
         return as_picture(make_brain()) if shown() else None
@@ -247,7 +278,7 @@ def server(input, output, session, shared):
     add_table(report_items, "rs_uncertain_csv", "People with an uncertain stage", uncertain)
 
     def make_stages_train():
-        return plot_stages(training(), SUBTYPE_NAMES, bars_only=True)
+        return plot_stages(training(), SUBTYPE_NAMES, sd_limit=input.rs_sd_limit(), private=True)
 
     @render.ui
     def rs_stages_train():
@@ -497,14 +528,18 @@ def server(input, output, session, shared):
 
     @reactive.effect
     def _person_choices():
-        """The people of the chosen group (S0, Subtype 1, ...), by stage; the first one is shown."""
+        """The people of the chosen group (S0, Subtype 1, ...), by stage, or everyone ("All", by ID - type to search);
+        the first one is shown."""
         res, group = result(), input.rs_person_group()
         if res is None:
             ui.update_selectize("rs_person", choices=[], selected=None)
             return
-        number = 0 if group == "S0" else SUBTYPE_NAMES.index(group) + 1
         table = res["table"]
-        people = [str(i) for i in table[table["subtype_number"] == number].sort_values("ml_stage", kind="stable").index]
+        if group == "All":
+            people = sorted(str(i) for i in table.index)
+        else:
+            number = 0 if group == "S0" else SUBTYPE_NAMES.index(group) + 1
+            people = [str(i) for i in table[table["subtype_number"] == number].sort_values("ml_stage", kind="stable").index]
         ui.update_selectize("rs_person", choices=people, selected=people[0] if people else None)
 
     def make_person():
@@ -518,8 +553,15 @@ def server(input, output, session, shared):
         expected = z[same].mean() if table.loc[person, "ml_stage"] > 0 else None
         i = table.index.get_loc(person)
         groups = table.loc[person, ["group_p_S0"] + [f"group_p_S{n}" for n in range(1, len(SUBTYPE_NAMES) + 1)]]
+        row = table.loc[person]
+        if bool(row.get("cleaned", False)):              # the model gave a subtype, the false-positive check reset it
+            title = (f"{person}: the model gives {SUBTYPE_NAMES[int(row['subtype_before_cleanup']) - 1]}, stage "
+                     f"{int(row['stage_before_cleanup'])} (the probabilities below) -> reset to S0 by the "
+                     "false-positive check (no ROI high-signal probability above the threshold)")
+        else:
+            title = f"{person}: {row['subtype']}" + (f", stage {int(row['ml_stage'])}" if row["ml_stage"] > 0 else "")
         return plot_person(person, z.loc[person], PACKAGE["lobes"], expected, groups.to_numpy(float),
-                           res["prob_stage"][i], ["S0"] + SUBTYPE_NAMES)
+                           res["prob_stage"][i], ["S0"] + SUBTYPE_NAMES, title=title)
 
     @render.image
     def rs_person_plot():

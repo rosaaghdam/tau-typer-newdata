@@ -73,3 +73,7 @@ not substitute for the lab's model or preprocessing when actual data arrive.
 - `expected_predictions.csv` stays the "ideal" answer (true normal values). The two differ (86% same subtype,
   54% same stage) because the reference GMM normal is higher than the true normal.
 - `generate.py` still reads column names from the original files on Rosa's computer (open point).
+
+Note: the training cohort's `study` column (X_merge_preExp3.csv) was replaced with invented study names by
+`code/10a_add_training_studies.py` (only that column; generate.py gives everyone 'synthetic_reference' - rerun
+10a after regenerating).
